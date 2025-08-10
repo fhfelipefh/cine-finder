@@ -53,6 +53,9 @@ Após isso, abra o navegador e acesse `http://localhost:5173` para ver a aplica�
 - `react-icons`: Para ícones na interface.
 - `dotenv`: Para gerenciar variáveis de ambiente.
 - `mui/material`: Para componentes de interface do usuário.
+- `@coreui/react` e `@coreui/coreui`: Para componentes adicionais de interface do usuário.
+- `prime-react`: Para componentes de interface do usuário.
+- `primeicons`: Para ícones utilizados pelo PrimeReact.
 
 ## Variáveis de Ambiente
 

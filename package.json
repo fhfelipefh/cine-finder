@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@coreui/coreui": "^5.4.1",
+    "@coreui/react": "^5.7.1",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.3.1",
@@ -17,6 +19,8 @@
     "axios": "^1.11.0",
     "bootstrap": "^5.3.7",
     "dotenv": "^17.2.1",
+    "primeicons": "^7.0.0",
+    "primereact": "^10.9.6",
     "react": "^19.1.1",
     "react-bootstrap": "^2.10.10",
     "react-dom": "^19.1.1",

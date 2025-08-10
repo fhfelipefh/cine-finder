@@ -3,13 +3,12 @@ import Container from "react-bootstrap/Container";
 import Nav from "react-bootstrap/Nav";
 import Navbar from "react-bootstrap/Navbar";
 import Movies from "./components/Movies.jsx";
-import MovieCinemaSVG from "./assets/movie-cinema.svg";
 import "./App.css";
-import { getPopularMovies, searchMovies, getMovieDetails } from "./api/api.js";
+import { getPopularMovies, searchMovies, getMovieDetails, getGenres, getMoviesByGenre } from "./api/api.js";
 import ErrorModal from "./components/ErrorModal.jsx";
 import PaginationControls from "./components/PaginationControls.jsx";
 import { BsStarFill } from "react-icons/bs";
-import { PageTitles } from "./constants.js";
+import { PageTitles, CategoryAllOption } from "./constants.js";
 import MovieDetailsModal from "./components/MovieDetailsModal.jsx";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
@@ -27,6 +26,8 @@ function App() {
   const [detailsId, setDetailsId] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
   const [query, setQuery] = useState("");
+  const [genres, setGenres] = useState([CategoryAllOption]);
+  const [selectedGenre, setSelectedGenre] = useState(CategoryAllOption.id);
   const debounceRef = useRef(null);
   const { ids: favoriteIds } = useFavorites();
 
@@ -52,6 +53,20 @@ function App() {
       active = false;
     };
   }, [moviesPage, pageTitle]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const list = await getGenres();
+        if (!active) return;
+        setGenres([CategoryAllOption, ...list]);
+      } catch (e) {
+        setErrorMsg(e?.message || "Erro ao carregar gêneros.");
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     if (pageTitle !== PageTitles.SEARCH) return;
@@ -81,6 +96,27 @@ function App() {
       clearTimeout(id);
     };
   }, [query, moviesPage, pageTitle]);
+
+  useEffect(() => {
+    if (pageTitle !== PageTitles.CATEGORY) return;
+    let active = true;
+    (async () => {
+      try {
+        setIsLoadingPopularMovies(true);
+        setErrorMsg("");
+        const data = await getMoviesByGenre(selectedGenre, moviesPage);
+        if (!active) return;
+        setPopularMovies(data.results);
+        setMoviesTotalPages(data.total_pages || 1);
+      } catch (error) {
+        if (!active) return;
+        setErrorMsg(error?.message || String(error));
+      } finally {
+        if (active) setIsLoadingPopularMovies(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [selectedGenre, moviesPage, pageTitle]);
 
   async function loadFavorites() {
     setPageTitle(PageTitles.FAVORITES);
@@ -113,6 +149,7 @@ function App() {
     setPageTitle(PageTitles.POPULAR);
     setMoviesPage(1);
     setQuery("");
+  setSelectedGenre(CategoryAllOption.id);
   }
 
   function openDetails(id) {
@@ -138,6 +175,18 @@ function App() {
     debounceRef.current = null;
     setPageTitle(query.trim() ? PageTitles.SEARCH : PageTitles.POPULAR);
     setMoviesPage(1);
+  }
+
+  function handleGenreChange(e) {
+    const value = e.target.value;
+    setSelectedGenre(value);
+    setMoviesPage(1);
+    setQuery("");
+    if (value === CategoryAllOption.id) {
+      setPageTitle(PageTitles.POPULAR);
+    } else {
+      setPageTitle(PageTitles.CATEGORY);
+    }
   }
 
   return (
@@ -181,14 +230,27 @@ function App() {
                 onChange={handleSearchInput}
                 variant="outlined"
                 sx={{ minWidth: 280 }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                  },
                 }}
               />
+              <select
+                className="form-select ms-2"
+                style={{ width: 180 }}
+                value={selectedGenre}
+                onChange={handleGenreChange}
+                aria-label="Filtrar por categoria"
+              >
+                {genres.map(g => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
             </form>
           </Navbar.Collapse>
         </Container>
@@ -196,7 +258,11 @@ function App() {
       <Movies
         isLoadingMovies={isLoadingPopularMovies}
         movies={popularMovies}
-        title={pageTitle}
+        title={
+          pageTitle === PageTitles.CATEGORY
+            ? `Categoria: ${genres.find(g => g.id == selectedGenre)?.name || ''}`
+            : pageTitle
+        }
         onSelect={openDetails}
       ></Movies>
       <MovieDetailsModal

@@ -48,3 +48,24 @@ export async function searchMovies(query, page = 1) {
   });
   return data;
 }
+
+export async function getGenres() {
+  const { data } = await client.get(`/genre/movie/list`, {
+    params: { language: "pt-BR" },
+  });
+  return data?.genres || [];
+}
+
+export async function getMoviesByGenre(genreId, page = 1) {
+  if (!genreId) return { results: [], total_pages: 1, total_results: 0 };
+  const { data } = await client.get(`/discover/movie`, {
+    params: {
+      with_genres: genreId,
+      language: "pt-BR",
+      sort_by: "popularity.desc",
+      page,
+      include_adult: false,
+    },
+  });
+  return data;
+}

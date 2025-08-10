@@ -1,14 +1,32 @@
 import { useEffect, useState, useMemo } from "react";
 import PropTypes from "prop-types";
-import { Modal, Row, Col, Badge, Spinner, Button } from "react-bootstrap";
+import {
+  Modal,
+  Row,
+  Col,
+  Badge,
+  Spinner,
+  Button,
+  OverlayTrigger,
+  Tooltip,
+} from "react-bootstrap";
 import { getMovieDetails, getSimilarMovies } from "../api/api";
+import { BsInfoCircle } from "react-icons/bs";
 
 const IMG_POSTER = "https://image.tmdb.org/t/p/w500";
 const IMG_SM = "https://image.tmdb.org/t/p/w185";
 
 function getCertification(release_dates, country = "BR") {
   const entry = release_dates?.results?.find((r) => r.iso_3166_1 === country);
-  return entry?.release_dates?.[0]?.certification || "";
+  if (!entry) return "";
+  const withCert = (entry.release_dates || []).filter((d) => d.certification);
+  if (withCert.length === 0) return "";
+  withCert.sort((a, b) => {
+    const da = a.release_date ? new Date(a.release_date).getTime() : 0;
+    const db = b.release_date ? new Date(b.release_date).getTime() : 0;
+    return db - da;
+  });
+  return withCert[0].certification;
 }
 
 function getYoutubeKey(videos) {
@@ -151,16 +169,34 @@ export default function MovieDetailsModal({
               <Col>
                 {meta.brCert && (
                   <div className="mb-2">
-                    <small className="text-muted me-1">Classificação:</small>
+                    <small className="text-muted me-1">
+                      Classificação (BR):
+                    </small>
                     <Badge bg="secondary">{meta.brCert}</Badge>
                   </div>
                 )}
 
-                <div className="mb-2">
-                  <small className="text-muted">Idiomas:</small> {meta.spoken}
+                <div className="mb-2 d-flex align-items-center flex-wrap gap-1">
+                  <small className="text-muted">Idiomas originais:</small>
+                  <span>{meta.spoken}</span>
+                  <OverlayTrigger
+                    placement="top"
+                    overlay={
+                      <Tooltip>
+                        Esses são os idiomas falados na produção original.
+                        Dublagens variam por serviço/região.
+                      </Tooltip>
+                    }
+                  >
+                    <span aria-label="informação" className="text-muted">
+                      <BsInfoCircle size={12} />
+                    </span>
+                  </OverlayTrigger>
                 </div>
+
                 <div className="mb-3">
-                  <small className="text-muted">Países:</small> {meta.countries}
+                  <small className="text-muted">País(es) de origem:</small>{" "}
+                  {meta.countries}
                 </div>
 
                 <div className="d-flex gap-2 flex-wrap mb-3">

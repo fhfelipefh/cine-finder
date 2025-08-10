@@ -6,6 +6,7 @@ import Container from "react-bootstrap/Container";
 import LoadingSkeleton from "./LoadingSkeleton";
 import { BsStarFill } from "react-icons/bs";
 import { PageTitles } from "../constants";
+import FavoriteButton from "../favorites/FavoriteButton.jsx";
 
 const IMG_BASE = "https://image.tmdb.org/t/p/w342";
 
@@ -55,6 +56,7 @@ function Movies({
                 className="h-100 movie-card"
                 onClick={() => onSelect(m.id)}
               >
+                <FavoriteButton movieId={m.id} />
                 <Card.Img
                   variant="top"
                   src={poster}

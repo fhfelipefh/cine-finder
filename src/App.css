@@ -64,3 +64,15 @@
   transform: translateY(-5px);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
 }
+
+.fav-btn{
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  border-radius: 999px;
+  padding: 6px 8px;
+  line-height: 1;
+  box-shadow: 0 4px 12px rgba(0,0,0,.25);
+}
+
+.movie-card{ position: relative; }

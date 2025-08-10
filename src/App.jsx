@@ -1,18 +1,20 @@
 import { useEffect, useRef, useState } from "react";
-import Button from "react-bootstrap/Button";
 import Container from "react-bootstrap/Container";
 import Nav from "react-bootstrap/Nav";
-import Form from "react-bootstrap/Form";
 import Navbar from "react-bootstrap/Navbar";
 import Movies from "./components/Movies.jsx";
 import MovieCinemaSVG from "./assets/movie-cinema.svg";
 import "./App.css";
-import { getPopularMovies, searchMovies } from "./api/api.js";
+import { getPopularMovies, searchMovies, getMovieDetails } from "./api/api.js";
 import ErrorModal from "./components/ErrorModal.jsx";
 import PaginationControls from "./components/PaginationControls.jsx";
 import { BsStarFill } from "react-icons/bs";
 import { PageTitles } from "./constants.js";
 import MovieDetailsModal from "./components/MovieDetailsModal.jsx";
+import TextField from "@mui/material/TextField";
+import InputAdornment from "@mui/material/InputAdornment";
+import SearchIcon from "@mui/icons-material/Search";
+import { useFavorites } from "./favorites/FavoritesProvider.jsx";
 
 function App() {
   const [popularMovies, setPopularMovies] = useState([]);
@@ -25,6 +27,7 @@ function App() {
   const [showDetails, setShowDetails] = useState(false);
   const [query, setQuery] = useState("");
   const debounceRef = useRef(null);
+  const { ids: favoriteIds } = useFavorites();
 
   useEffect(() => {
     if (pageTitle !== PageTitles.POPULAR) return;
@@ -78,22 +81,30 @@ function App() {
     };
   }, [query, moviesPage, pageTitle]);
 
-  function loadFavorites() {
-    const favs = localStorage.getItem("favs");
+  async function loadFavorites() {
     setPageTitle(PageTitles.FAVORITES);
     setMoviesPage(1);
     setMoviesTotalPages(1);
     setQuery("");
-    if (favs) {
-      try {
-        const favsArray = JSON.parse(favs);
-        setPopularMovies(Array.isArray(favsArray) ? favsArray : []);
-      } catch (error) {
-        setErrorMsg(error?.message || "Erro ao carregar favoritos.");
+    setErrorMsg("");
+    setIsLoadingPopularMovies(true);
+
+    try {
+      if (!favoriteIds || favoriteIds.length === 0) {
         setPopularMovies([]);
+        return;
       }
-    } else {
+
+      const details = await Promise.all(
+        favoriteIds.map((id) => getMovieDetails(id).catch(() => null))
+      );
+
+      setPopularMovies(details.filter(Boolean));
+    } catch (e) {
       setPopularMovies([]);
+      setErrorMsg(e?.message || "Erro ao carregar favoritos.");
+    } finally {
+      setIsLoadingPopularMovies(false);
     }
   }
 
@@ -165,25 +176,35 @@ function App() {
                   style={{
                     color: "#f4c542",
                     marginBottom: "3px",
-                    width: "20px",
-                    height: "20px",
+                    width: "15px",
+                    height: "15px",
                   }}
                 />
               </Nav.Link>
             </Nav>
-            <Form className="d-flex" onSubmit={handleSearchSubmit}>
-              <Form.Control
-                type="search"
-                placeholder="Digite um título"
-                className="me-3"
-                aria-label="Search"
+            <form onSubmit={handleSearchSubmit} style={{ marginLeft: "auto" }}>
+              <TextField
+                size="small"
+                placeholder="Buscar filmes…"
                 value={query}
                 onChange={handleSearchInput}
+                variant="outlined"
+                sx={{
+                  minWidth: 280,
+                  width: 420,
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: "999px",
+                  },
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
               />
-              <Button variant="outline-success" type="submit">
-                Pesquisar
-              </Button>
-            </Form>
+            </form>
           </Navbar.Collapse>
         </Container>
       </Navbar>
@@ -198,12 +219,14 @@ function App() {
         movieId={detailsId}
         onHide={() => setShowDetails(false)}
       />
-      <PaginationControls
-        currentPage={moviesPage}
-        totalPages={moviesTotalPages}
-        onPageChange={setMoviesPage}
-        isDisabled={isLoadingPopularMovies}
-      />
+      {pageTitle !== PageTitles.FAVORITES && (
+        <PaginationControls
+          currentPage={moviesPage}
+          totalPages={moviesTotalPages}
+          onPageChange={setMoviesPage}
+          isDisabled={isLoadingPopularMovies}
+        />
+      )}
       <ErrorModal errorMsg={errorMsg} />
     </>
   );

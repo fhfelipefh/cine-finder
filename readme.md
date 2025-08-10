@@ -52,6 +52,7 @@ Após isso, abra o navegador e acesse `http://localhost:5173` para ver a aplica�
 - `react-bootstrap`: Integração do Bootstrap com React.
 - `react-icons`: Para ícones na interface.
 - `dotenv`: Para gerenciar variáveis de ambiente.
+- `mui/material`: Para componentes de interface do usuário.
 
 ## Variáveis de Ambiente
 

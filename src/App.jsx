@@ -12,6 +12,7 @@ import ErrorModal from "./components/ErrorModal.jsx";
 import PaginationControls from "./components/PaginationControls.jsx";
 import { BsStarFill } from "react-icons/bs";
 import { PageTitles } from "./constants.js";
+import MovieDetailsModal from "./components/MovieDetailsModal.jsx";
 
 function App() {
   const [popularMovies, setPopularMovies] = useState([]);
@@ -20,6 +21,8 @@ function App() {
   const [errorMsg, setErrorMsg] = useState("");
   const [isLoadingPopularMovies, setIsLoadingPopularMovies] = useState(true);
   const [pageTitle, setPageTitle] = useState(PageTitles.POPULAR);
+  const [detailsId, setDetailsId] = useState(null);
+  const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
     if (pageTitle !== PageTitles.POPULAR) return;
@@ -65,6 +68,11 @@ function App() {
   function loadPopular() {
     setPageTitle(PageTitles.POPULAR);
     setMoviesPage(1);
+  }
+
+  function openDetails(id) {
+    setDetailsId(id);
+    setShowDetails(true);
   }
 
   return (
@@ -126,7 +134,13 @@ function App() {
         isLoadingMovies={isLoadingPopularMovies}
         movies={popularMovies}
         title={pageTitle}
+        onSelect={openDetails}
       ></Movies>
+      <MovieDetailsModal
+        show={showDetails}
+        movieId={detailsId}
+        onHide={() => setShowDetails(false)}
+      />
       <PaginationControls
         currentPage={moviesPage}
         totalPages={moviesTotalPages}

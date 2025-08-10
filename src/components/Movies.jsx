@@ -9,7 +9,12 @@ import { PageTitles } from "../constants";
 
 const IMG_BASE = "https://image.tmdb.org/t/p/w342";
 
-function Movies({ isLoadingMovies, movies = [], title = PageTitles.POPULAR }) {
+function Movies({
+  isLoadingMovies,
+  movies = [],
+  title = PageTitles.POPULAR,
+  onSelect,
+}) {
   if (isLoadingMovies) return <LoadingSkeleton />;
 
   if (!Array.isArray(movies) || (movies.length === 0 && !isLoadingMovies)) {
@@ -46,7 +51,10 @@ function Movies({ isLoadingMovies, movies = [], title = PageTitles.POPULAR }) {
 
           return (
             <Col key={m.id}>
-              <Card className="h-100 movie-card">
+              <Card
+                className="h-100 movie-card"
+                onClick={() => onSelect(m.id)}
+              >
                 <Card.Img
                   variant="top"
                   src={poster}
@@ -54,9 +62,7 @@ function Movies({ isLoadingMovies, movies = [], title = PageTitles.POPULAR }) {
                   loading="lazy"
                 />
                 <Card.Body>
-                  <Card.Title className="title">
-                    {title}
-                  </Card.Title>
+                  <Card.Title className="title">{title}</Card.Title>
 
                   <Card.Subtitle className="text-muted mb-2">
                     {year}
@@ -68,7 +74,6 @@ function Movies({ isLoadingMovies, movies = [], title = PageTitles.POPULAR }) {
                   </div>
 
                   <Card.Text className="overview">{overview}</Card.Text>
-
                 </Card.Body>
               </Card>
             </Col>
@@ -83,6 +88,7 @@ Movies.propTypes = {
   isLoadingMovies: PropTypes.bool,
   movies: PropTypes.arrayOf(PropTypes.object),
   title: PropTypes.string,
+  onSelect: PropTypes.func,
 };
 
 export default Movies;

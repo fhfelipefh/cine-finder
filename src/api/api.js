@@ -2,24 +2,28 @@ import axios from "axios";
 
 const TMDB_ACCESS_TOKEN_AUTH = import.meta.env.VITE_TMDB_ACCESS_TOKEN_AUTH;
 
+const client = axios.create({
+  baseURL: "https://api.themoviedb.org/3",
+  headers: {
+    accept: "application/json",
+    Authorization: `Bearer ${TMDB_ACCESS_TOKEN_AUTH}`,
+  },
+});
+
 export async function getPopularMovies(page = 1) {
-  if (!TMDB_ACCESS_TOKEN_AUTH) {
-    throw new Error("TMDB_ACCESS_TOKEN_AUTH não foi definido no ambiente.");
-  }
+  const { data } = await client.get(`/movie/popular`, {
+    params: { language: "pt-BR", page },
+  });
+  return data;
+}
 
-  const url = `https://api.themoviedb.org/3/movie/popular?language=pt-br&page=${page}`;
-
-  const options = {
-    method: "GET",
-    headers: {
-      accept: "application/json",
-      Authorization: `Bearer ${TMDB_ACCESS_TOKEN_AUTH}`,
+export async function getMovieDetails(movieId) {
+  if (!movieId) throw new Error("movieId é obrigatório.");
+  const { data } = await client.get(`/movie/${movieId}`, {
+    params: {
+      language: "pt-BR",
+      append_to_response: "credits,videos,recommendations,images,release_dates",
     },
-  };
-
-  return axios.get(url, options)
-    .then((response) => response.data)
-    .catch((error) => {
-      throw error;
-    });
+  });
+  return data;
 }

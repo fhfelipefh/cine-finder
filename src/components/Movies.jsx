@@ -12,10 +12,7 @@ const IMG_BASE = "https://image.tmdb.org/t/p/w342";
 function Movies({ isLoadingMovies, movies = [], title = PageTitles.POPULAR }) {
   if (isLoadingMovies) return <LoadingSkeleton />;
 
-  if (
-    !Array.isArray(movies) ||
-    (movies.length === 0 && !isLoadingMovies)
-  ) {
+  if (!Array.isArray(movies) || (movies.length === 0 && !isLoadingMovies)) {
     return (
       <Container className="my-2">
         <h4 className="mb-3 border-bottom pb-2">{title}</h4>
@@ -33,11 +30,11 @@ function Movies({ isLoadingMovies, movies = [], title = PageTitles.POPULAR }) {
           const poster = m.poster_path
             ? `${IMG_BASE}${m.poster_path}`
             : "/no-poster.png";
-          const title = m.title || m.original_title || "Sem título";
           const original =
             m.original_title && m.original_title !== m.title
               ? ` (${m.original_title})`
               : "";
+          const title = m.title || m.original_title || original;
           const year = m.release_date
             ? ` • ${new Date(m.release_date).getFullYear()}`
             : "";
@@ -59,9 +56,11 @@ function Movies({ isLoadingMovies, movies = [], title = PageTitles.POPULAR }) {
                 <Card.Body>
                   <Card.Title className="title">
                     {title}
-                    {original}
-                    {year}
                   </Card.Title>
+
+                  <Card.Subtitle className="text-muted mb-2">
+                    {year}
+                  </Card.Subtitle>
 
                   <div className="rating" aria-label={`Avaliação ${rating}`}>
                     <BsStarFill size={14} />
@@ -69,6 +68,7 @@ function Movies({ isLoadingMovies, movies = [], title = PageTitles.POPULAR }) {
                   </div>
 
                   <Card.Text className="overview">{overview}</Card.Text>
+
                 </Card.Body>
               </Card>
             </Col>

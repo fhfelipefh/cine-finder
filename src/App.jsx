@@ -10,22 +10,27 @@ import NavDropdown from "react-bootstrap/NavDropdown";
 import PopularMovies from "./components/PopularMovies.jsx";
 import "./App.css";
 import { getPopularMovies } from "./api/api.js";
+import ErrorModal from "./components/ErrorModal.jsx";
 
 function App() {
   const [popularMovies, setPopularMovies] = useState([]);
+  const [popularMoviesPage, setPopularMoviesPage] = useState(1)
+  const [enablePopularMoviesPagination, setEnablePopularMoviesPagination] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
     async function fetchPopularMovies() {
       try {
-        const data = await getPopularMovies();
+        const data = await getPopularMovies(popularMoviesPage);
         setPopularMovies(data.results);
+        setEnablePopularMoviesPagination(true);
       } catch (error) {
-        console.error("Erro ao buscar filmes populares:", error);
+        setErrorMsg(error);
       }
     }
 
     fetchPopularMovies();
-  }, []);
+  }, [popularMoviesPage]);
 
   return (
     <>
@@ -54,6 +59,7 @@ function App() {
         </Container>
       </Navbar>
       <PopularMovies popularMovies={popularMovies}></PopularMovies>
+      <ErrorModal errorMsg={errorMsg} />
     </>
   );
 }

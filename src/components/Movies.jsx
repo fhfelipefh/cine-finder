@@ -74,6 +74,18 @@ function Movies({
                   </div>
 
                   <Card.Text className="overview">{overview}</Card.Text>
+
+
+                  <button
+                    className="btn btn-secondary mt-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelect(m.id);
+                    }
+                  }
+                  >
+                    Ver detalhes
+                  </button>
                 </Card.Body>
               </Card>
             </Col>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import PropTypes from "prop-types";
-import { Modal, Button, Row, Col, Badge } from "react-bootstrap";
+import { Modal, Row, Col, Badge } from "react-bootstrap";
 import { getMovieDetails } from "../api/api";
 import { BsStarFill } from "react-icons/bs";
 
@@ -112,12 +112,6 @@ export default function MovieDetailsModal({ show, movieId, onHide }) {
           </Row>
         )}
       </Modal.Body>
-
-      <Modal.Footer>
-        <Button variant="secondary" onClick={onHide}>
-          Fechar
-        </Button>
-      </Modal.Footer>
     </Modal>
   );
 }

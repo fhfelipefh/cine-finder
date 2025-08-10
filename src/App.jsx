@@ -21,6 +21,7 @@ import InputAdornment from "@mui/material/InputAdornment";
 import SearchIcon from "@mui/icons-material/Search";
 import { useFavorites } from "./favorites/FavoritesProvider.jsx";
 import TMDBAttribution from "./components/TMBDAttribution.jsx";
+import HeroCarousel from "./components/HeroCarousel.jsx";
 
 function App() {
   const [popularMovies, setPopularMovies] = useState([]);
@@ -138,7 +139,7 @@ function App() {
     } else {
       mode = "GLOBAL";
     }
-    
+
     const strategies = {
       CATEGORY_TEXT: () =>
         fetchCategoryWithText(query, moviesPage, selectedGenre),
@@ -315,6 +316,10 @@ function App() {
           </Navbar.Collapse>
         </Container>
       </Navbar>
+      <HeroCarousel
+        visible={pageTitle === PageTitles.POPULAR}
+        onSelect={openDetails}
+      />
       <Movies
         isLoadingMovies={isLoadingPopularMovies}
         movies={popularMovies}

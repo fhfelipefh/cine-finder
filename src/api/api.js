@@ -69,3 +69,13 @@ export async function getMoviesByGenre(genreId, page = 1) {
   });
   return data;
 }
+
+export async function getNowPlayingMovies(page = 1) {
+  const { data } = await client.get(`/movie/now_playing`, {
+    params: {
+      language: "pt-BR",
+      page,
+    },
+  });
+  return data;
+}

@@ -109,7 +109,7 @@ export default function MovieDetailsModal({ show, movieId, onHide }) {
                 </div>
               )}
 
-              <p style={{ whiteSpace: "pre-line" }}>
+              <p style={{ whiteSpace: "pre-line", textAlign: "justify" }}>
                 {details.overview || "Sem sinopse disponível."}
               </p>
             </Col>

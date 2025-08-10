@@ -4,7 +4,13 @@ import Nav from "react-bootstrap/Nav";
 import Navbar from "react-bootstrap/Navbar";
 import Movies from "./components/Movies.jsx";
 import "./App.css";
-import { getPopularMovies, searchMovies, getMovieDetails, getGenres, getMoviesByGenre } from "./api/api.js";
+import {
+  getPopularMovies,
+  searchMovies,
+  getMovieDetails,
+  getGenres,
+  getMoviesByGenre,
+} from "./api/api.js";
 import ErrorModal from "./components/ErrorModal.jsx";
 import PaginationControls from "./components/PaginationControls.jsx";
 import { BsStarFill } from "react-icons/bs";
@@ -31,19 +37,40 @@ function App() {
   const debounceRef = useRef(null);
   const { ids: favoriteIds } = useFavorites();
 
+  function runCancelable(delayMs, work) {
+    let active = true;
+    const id = setTimeout(async () => {
+      try {
+        await work(() => active);
+      } catch (e) {
+        setErrorMsg(e?.message || String(e));
+      }
+    }, delayMs);
+    return () => {
+      active = false;
+      clearTimeout(id);
+    };
+  }
+
   useEffect(() => {
-    if (pageTitle !== PageTitles.POPULAR) return;
+    if (pageTitle !== PageTitles.POPULAR) {
+      return;
+    }
     let active = true;
     (async () => {
       try {
         setIsLoadingPopularMovies(true);
         setErrorMsg("");
         const data = await getPopularMovies(moviesPage);
-        if (!active) return;
+        if (!active) {
+          return;
+        }
         setPopularMovies(data.results);
         setMoviesTotalPages(data.total_pages);
       } catch (error) {
-        if (!active) return;
+        if (!active) {
+          return;
+        }
         setErrorMsg(error?.message || String(error));
       } finally {
         if (active) setIsLoadingPopularMovies(false);
@@ -59,64 +86,82 @@ function App() {
     (async () => {
       try {
         const list = await getGenres();
-        if (!active) return;
+        if (!active) {
+          return;
+        }
         setGenres([CategoryAllOption, ...list]);
       } catch (e) {
         setErrorMsg(e?.message || "Erro ao carregar gêneros.");
       }
     })();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
-    if (pageTitle !== PageTitles.SEARCH) return;
-    let active = true;
+    const isGlobalSearch =
+      pageTitle === PageTitles.SEARCH && selectedGenre === CategoryAllOption.id;
+    const isCategory = pageTitle === PageTitles.CATEGORY;
+    if (!isGlobalSearch && !isCategory) {
+      return;
+    }
+    const hasText = query.trim().length > 0;
+    const wantsDebounce = hasText;
+    const delay = debounceRef.current && wantsDebounce ? 600 : 0;
 
-    const delay = debounceRef.current ? 600 : 0;
+    async function fetchCategoryWithText(q, page, genreId) {
+      const dataSearch = await searchMovies(q, page);
+      const filtered = (dataSearch.results || []).filter(
+        (m) =>
+          Array.isArray(m.genre_ids) && m.genre_ids.includes(Number(genreId))
+      );
+      return {
+        results: filtered,
+        totalPages: filtered.length > 0 ? dataSearch.total_pages : 1,
+      };
+    }
 
-    const run = async () => {
-      try {
-        setIsLoadingPopularMovies(true);
-        setErrorMsg("");
-        const data = await searchMovies(query, moviesPage);
-        if (!active) return;
-        setPopularMovies(data.results);
-        setMoviesTotalPages(data.total_pages || 1);
-      } catch (error) {
-        if (!active) return;
-        setErrorMsg(error?.message || String(error));
-      } finally {
-        if (active) setIsLoadingPopularMovies(false);
-      }
+    async function fetchCategoryNoText(page, genreId) {
+      const data = await getMoviesByGenre(genreId, page);
+      return { results: data.results || [], totalPages: data.total_pages || 1 };
+    }
+
+    async function fetchGlobalSearch(q, page) {
+      const data = await searchMovies(q, page);
+      return { results: data.results || [], totalPages: data.total_pages || 1 };
+    }
+
+    let mode;
+    if (isCategory) {
+      mode = hasText ? "CATEGORY_TEXT" : "CATEGORY";
+    } else {
+      mode = "GLOBAL";
+    }
+    
+    const strategies = {
+      CATEGORY_TEXT: () =>
+        fetchCategoryWithText(query, moviesPage, selectedGenre),
+      CATEGORY: () => fetchCategoryNoText(moviesPage, selectedGenre),
+      GLOBAL: () => fetchGlobalSearch(query, moviesPage),
     };
 
-    const id = setTimeout(run, delay);
-    return () => {
-      active = false;
-      clearTimeout(id);
-    };
-  }, [query, moviesPage, pageTitle]);
-
-  useEffect(() => {
-    if (pageTitle !== PageTitles.CATEGORY) return;
-    let active = true;
-    (async () => {
+    return runCancelable(delay, async (isActive) => {
+      setIsLoadingPopularMovies(true);
+      setErrorMsg("");
       try {
-        setIsLoadingPopularMovies(true);
-        setErrorMsg("");
-        const data = await getMoviesByGenre(selectedGenre, moviesPage);
-        if (!active) return;
-        setPopularMovies(data.results);
-        setMoviesTotalPages(data.total_pages || 1);
+        const { results, totalPages } = await strategies[mode]();
+        if (!isActive()) return;
+        setPopularMovies(results);
+        setMoviesTotalPages(totalPages);
       } catch (error) {
-        if (!active) return;
+        if (!isActive()) return;
         setErrorMsg(error?.message || String(error));
       } finally {
-        if (active) setIsLoadingPopularMovies(false);
+        if (isActive()) setIsLoadingPopularMovies(false);
       }
-    })();
-    return () => { active = false; };
-  }, [selectedGenre, moviesPage, pageTitle]);
+    });
+  }, [query, moviesPage, pageTitle, selectedGenre]);
 
   async function loadFavorites() {
     setPageTitle(PageTitles.FAVORITES);
@@ -149,7 +194,7 @@ function App() {
     setPageTitle(PageTitles.POPULAR);
     setMoviesPage(1);
     setQuery("");
-  setSelectedGenre(CategoryAllOption.id);
+    setSelectedGenre(CategoryAllOption.id);
   }
 
   function openDetails(id) {
@@ -161,7 +206,11 @@ function App() {
     const value = e.target.value;
     setQuery(value);
     setMoviesPage(1);
-    if (value && value.trim().length > 0) {
+    const hasText = value.trim().length > 0;
+    if (selectedGenre !== CategoryAllOption.id) {
+      setPageTitle(PageTitles.CATEGORY);
+      debounceRef.current = hasText ? true : null;
+    } else if (hasText) {
       setPageTitle(PageTitles.SEARCH);
       debounceRef.current = true;
     } else {
@@ -173,7 +222,11 @@ function App() {
   function handleSearchSubmit(e) {
     e.preventDefault();
     debounceRef.current = null;
-    setPageTitle(query.trim() ? PageTitles.SEARCH : PageTitles.POPULAR);
+    if (selectedGenre !== CategoryAllOption.id) {
+      setPageTitle(PageTitles.CATEGORY);
+    } else {
+      setPageTitle(query.trim() ? PageTitles.SEARCH : PageTitles.POPULAR);
+    }
     setMoviesPage(1);
   }
 
@@ -188,6 +241,11 @@ function App() {
       setPageTitle(PageTitles.CATEGORY);
     }
   }
+
+  const moviesTitle =
+    pageTitle === PageTitles.CATEGORY
+      ? `Categoria: ${genres.find((g) => g.id == selectedGenre)?.name || ""}`
+      : pageTitle;
 
   return (
     <>
@@ -247,8 +305,10 @@ function App() {
                 onChange={handleGenreChange}
                 aria-label="Filtrar por categoria"
               >
-                {genres.map(g => (
-                  <option key={g.id} value={g.id}>{g.name}</option>
+                {genres.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
                 ))}
               </select>
             </form>
@@ -258,11 +318,7 @@ function App() {
       <Movies
         isLoadingMovies={isLoadingPopularMovies}
         movies={popularMovies}
-        title={
-          pageTitle === PageTitles.CATEGORY
-            ? `Categoria: ${genres.find(g => g.id == selectedGenre)?.name || ''}`
-            : pageTitle
-        }
+        title={moviesTitle}
         onSelect={openDetails}
       ></Movies>
       <MovieDetailsModal

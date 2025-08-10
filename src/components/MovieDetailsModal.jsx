@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import PropTypes from "prop-types";
-import { Modal, Row, Col, Badge } from "react-bootstrap";
+import { Modal, Row, Col, Badge, Spinner } from "react-bootstrap";
 import { getMovieDetails } from "../api/api";
 import { BsStarFill } from "react-icons/bs";
 
@@ -60,7 +60,11 @@ export default function MovieDetailsModal({ show, movieId, onHide }) {
       </Modal.Header>
 
       <Modal.Body>
-        {loading && <p>Carregando…</p>}
+        {loading && (
+          <div className="text-center my-4">
+            <Spinner animation="border" role="status" />
+          </div>
+        )}
         {!loading && err && <p className="text-danger">{err}</p>}
 
         {!loading && !err && details && (

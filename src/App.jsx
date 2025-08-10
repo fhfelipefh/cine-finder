@@ -1,29 +1,26 @@
 import { useEffect, useState } from "react";
-import popCornLogo from "/popcorn-movie-cinema.svg";
 import Button from "react-bootstrap/Button";
 import Container from "react-bootstrap/Container";
 import Nav from "react-bootstrap/Nav";
 import Form from "react-bootstrap/Form";
 import Navbar from "react-bootstrap/Navbar";
-import NavDropdown from "react-bootstrap/NavDropdown";
-import PopularMovies from "./components/PopularMovies.jsx";
+import Movies from "./components/Movies.jsx";
 import "./App.css";
 import { getPopularMovies } from "./api/api.js";
 import ErrorModal from "./components/ErrorModal.jsx";
 
 function App() {
   const [popularMovies, setPopularMovies] = useState([]);
-  const [popularMoviesPage, setPopularMoviesPage] = useState(1)
-  const [enablePopularMoviesPagination, setEnablePopularMoviesPagination] = useState(false);
+  const [moviesPage, setMoviesPage] = useState(1)
   const [errorMsg, setErrorMsg] = useState("");
   const [isLoadingPopularMovies, setIsLoadingPopularMovies] = useState(true);
+  const [pageTitle, setPageTitle] = useState("Filmes Populares");
 
   useEffect(() => {
     async function fetchPopularMovies() {
       try {
-        const data = await getPopularMovies(popularMoviesPage);
+        const data = await getPopularMovies(moviesPage);
         setPopularMovies(data.results);
-        setEnablePopularMoviesPagination(true);
         setIsLoadingPopularMovies(false);
       } catch (error) {
         setErrorMsg(error);
@@ -31,7 +28,7 @@ function App() {
     }
 
     fetchPopularMovies();
-  }, [popularMoviesPage]);
+  }, [moviesPage]);
 
   return (
     <>
@@ -59,8 +56,9 @@ function App() {
           </Navbar.Collapse>
         </Container>
       </Navbar>
-      <PopularMovies isLoadingPopularMovies={isLoadingPopularMovies} popularMovies={popularMovies}></PopularMovies>
+      <Movies isLoadingMovies={isLoadingPopularMovies} movies={popularMovies} title={pageTitle}></Movies>
       <ErrorModal errorMsg={errorMsg} />
+      
     </>
   );
 }

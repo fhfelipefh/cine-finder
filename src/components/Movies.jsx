@@ -8,22 +8,22 @@ import { BsStarFill } from "react-icons/bs";
 
 const IMG_BASE = "https://image.tmdb.org/t/p/w342";
 
-function PopularMovies({ isLoadingPopularMovies, popularMovies = [] }) {
-  if (isLoadingPopularMovies) return <LoadingSkeleton />;
+function Movies({ isLoadingMovies, movies = [], title = "Filmes Populares" }) {
+  if (isLoadingMovies) return <LoadingSkeleton />;
 
   if (
-    !Array.isArray(popularMovies) ||
-    (popularMovies.length === 0 && !isLoadingPopularMovies)
+    !Array.isArray(movies) ||
+    (movies.length === 0 && !isLoadingMovies)
   ) {
     return <p className="text-center my-4">Nenhum filme encontrado.</p>;
   }
 
   return (
     <Container className="my-2">
-      <h4 className="mb-3 border-bottom pb-2">Filmes Populares</h4>
+      <h4 className="mb-3 border-bottom pb-2">{title}</h4>
 
       <Row xs={2} sm={3} md={4} lg={6} xl={8} className="g-3">
-        {popularMovies.map((m) => {
+        {movies.map((m) => {
           const poster = m.poster_path
             ? `${IMG_BASE}${m.poster_path}`
             : "/no-poster.png";
@@ -73,9 +73,10 @@ function PopularMovies({ isLoadingPopularMovies, popularMovies = [] }) {
   );
 }
 
-PopularMovies.propTypes = {
-  isLoadingPopularMovies: PropTypes.bool,
-  popularMovies: PropTypes.arrayOf(PropTypes.object),
+Movies.propTypes = {
+  isLoadingMovies: PropTypes.bool,
+  movies: PropTypes.arrayOf(PropTypes.object),
+  title: PropTypes.string,
 };
 
-export default PopularMovies;
+export default Movies;

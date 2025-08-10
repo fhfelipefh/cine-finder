@@ -2,10 +2,11 @@ import PropTypes from "prop-types";
 import Card from "react-bootstrap/Card";
 import Col from "react-bootstrap/Col";
 import Row from "react-bootstrap/Row";
+import Container from "react-bootstrap/Container";
 import LoadingSkeleton from "./LoadingSkeleton";
-import { Container } from "react-bootstrap";
+import { BsStarFill } from "react-icons/bs";
 
-const IMG_BASE = "https://image.tmdb.org/t/p/w500";
+const IMG_BASE = "https://image.tmdb.org/t/p/w342";
 
 function PopularMovies({ isLoadingPopularMovies, popularMovies = [] }) {
   if (isLoadingPopularMovies) return <LoadingSkeleton />;
@@ -18,14 +19,19 @@ function PopularMovies({ isLoadingPopularMovies, popularMovies = [] }) {
   }
 
   return (
-    <Container className="my-1">
-      <Row xs={2} sm={3} md={4} lg={6} xl={8}>
+    <Container className="my-2">
+      <h4 className="mb-3 border-bottom pb-2">Filmes Populares</h4>
+
+      <Row xs={2} sm={3} md={4} lg={6} xl={8} className="g-3">
         {popularMovies.map((m) => {
           const poster = m.poster_path
             ? `${IMG_BASE}${m.poster_path}`
             : "/no-poster.png";
           const title = m.title || m.original_title || "Sem título";
-          const original = m.original_title ? ` (${m.original_title})` : "";
+          const original =
+            m.original_title && m.original_title !== m.title
+              ? ` (${m.original_title})`
+              : "";
           const year = m.release_date
             ? ` • ${new Date(m.release_date).getFullYear()}`
             : "";
@@ -37,7 +43,7 @@ function PopularMovies({ isLoadingPopularMovies, popularMovies = [] }) {
 
           return (
             <Col key={m.id}>
-              <Card className="h-90">
+              <Card className="h-100 movie-card">
                 <Card.Img
                   variant="top"
                   src={poster}
@@ -45,25 +51,18 @@ function PopularMovies({ isLoadingPopularMovies, popularMovies = [] }) {
                   loading="lazy"
                 />
                 <Card.Body>
-                  <Card.Title className="mb-1">
+                  <Card.Title className="title">
                     {title}
                     {original}
                     {year}
                   </Card.Title>
-                  <Card.Subtitle className="text-muted mb-2">
-                    ⭐ {rating}
-                  </Card.Subtitle>
-                  <Card.Text
-                    className="text-truncate"
-                    style={{
-                      WebkitLineClamp: 3,
-                      display: "-webkit-box",
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden",
-                    }}
-                  >
-                    {overview}
-                  </Card.Text>
+
+                  <div className="rating" aria-label={`Avaliação ${rating}`}>
+                    <BsStarFill size={14} />
+                    <span>{rating}</span>
+                  </div>
+
+                  <Card.Text className="overview">{overview}</Card.Text>
                 </Card.Body>
               </Card>
             </Col>

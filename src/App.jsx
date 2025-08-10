@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import reactLogo from "./assets/react.svg";
 import popCornLogo from "/popcorn-movie-cinema.svg";
 import Button from "react-bootstrap/Button";
 import Container from "react-bootstrap/Container";

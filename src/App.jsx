@@ -8,10 +8,13 @@ import Movies from "./components/Movies.jsx";
 import "./App.css";
 import { getPopularMovies } from "./api/api.js";
 import ErrorModal from "./components/ErrorModal.jsx";
+import PaginationControls from "./components/PaginationControls.jsx";
 
 function App() {
   const [popularMovies, setPopularMovies] = useState([]);
-  const [moviesPage, setMoviesPage] = useState(1)
+  const [moviesPage, setMoviesPage] = useState(1);
+  const [moviesTotalPages, setMoviesTotalPages] = useState(1);
+  const [moviesTotalResults, setMoviesTotalResults] = useState(0);
   const [errorMsg, setErrorMsg] = useState("");
   const [isLoadingPopularMovies, setIsLoadingPopularMovies] = useState(true);
   const [pageTitle, setPageTitle] = useState("Filmes Populares");
@@ -21,6 +24,8 @@ function App() {
       try {
         const data = await getPopularMovies(moviesPage);
         setPopularMovies(data.results);
+        setMoviesTotalPages(data.total_pages);
+        setMoviesTotalResults(data.total_results);
         setIsLoadingPopularMovies(false);
       } catch (error) {
         setErrorMsg(error);
@@ -56,9 +61,18 @@ function App() {
           </Navbar.Collapse>
         </Container>
       </Navbar>
-      <Movies isLoadingMovies={isLoadingPopularMovies} movies={popularMovies} title={pageTitle}></Movies>
+      <Movies
+        isLoadingMovies={isLoadingPopularMovies}
+        movies={popularMovies}
+        title={pageTitle}
+      ></Movies>
+      <PaginationControls
+        currentPage={moviesPage}
+        totalPages={moviesTotalPages}
+        onPageChange={setMoviesPage}
+        isDisabled={isLoadingPopularMovies}
+      />
       <ErrorModal errorMsg={errorMsg} />
-      
     </>
   );
 }

@@ -70,3 +70,4 @@ Existe um arquivo `.env.example` que serve como modelo para você criar o seu.
 - [Documentação do React bootstrap 2](https://react-bootstrap.netlify.app/docs/components/navbar#containers)
 - [Configuração de váriaveis de ambiente no VITE](https://mayconbalves.medium.com/configurando-vari%C3%A1veis-de-ambiente-com-reactjs-5c1521768590)
 - [Importação de váriaveis de ambiente no VITE](https://stackoverflow.com/questions/30239060/uncaught-referenceerror-process-is-not-defined)
+- [Documentação imagens do TMDB](https://developers.themoviedb.org/3/getting-started/images)

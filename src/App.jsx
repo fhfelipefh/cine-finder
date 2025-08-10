@@ -17,6 +17,7 @@ function App() {
   const [popularMoviesPage, setPopularMoviesPage] = useState(1)
   const [enablePopularMoviesPagination, setEnablePopularMoviesPagination] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [isLoadingPopularMovies, setIsLoadingPopularMovies] = useState(true);
 
   useEffect(() => {
     async function fetchPopularMovies() {
@@ -24,6 +25,7 @@ function App() {
         const data = await getPopularMovies(popularMoviesPage);
         setPopularMovies(data.results);
         setEnablePopularMoviesPagination(true);
+        setIsLoadingPopularMovies(false);
       } catch (error) {
         setErrorMsg(error);
       }
@@ -58,7 +60,7 @@ function App() {
           </Navbar.Collapse>
         </Container>
       </Navbar>
-      <PopularMovies popularMovies={popularMovies}></PopularMovies>
+      <PopularMovies isLoadingPopularMovies={isLoadingPopularMovies} popularMovies={popularMovies}></PopularMovies>
       <ErrorModal errorMsg={errorMsg} />
     </>
   );

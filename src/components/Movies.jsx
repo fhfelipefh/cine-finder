@@ -5,17 +5,23 @@ import Row from "react-bootstrap/Row";
 import Container from "react-bootstrap/Container";
 import LoadingSkeleton from "./LoadingSkeleton";
 import { BsStarFill } from "react-icons/bs";
+import { PageTitles } from "../constants";
 
 const IMG_BASE = "https://image.tmdb.org/t/p/w342";
 
-function Movies({ isLoadingMovies, movies = [], title = "Filmes Populares" }) {
+function Movies({ isLoadingMovies, movies = [], title = PageTitles.POPULAR }) {
   if (isLoadingMovies) return <LoadingSkeleton />;
 
   if (
     !Array.isArray(movies) ||
     (movies.length === 0 && !isLoadingMovies)
   ) {
-    return <p className="text-center my-4">Nenhum filme encontrado.</p>;
+    return (
+      <Container className="my-2">
+        <h4 className="mb-3 border-bottom pb-2">{title}</h4>
+        <p className="text-center my-4">Nenhum filme encontrado.</p>
+      </Container>
+    );
   }
 
   return (

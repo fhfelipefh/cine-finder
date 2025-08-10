@@ -141,7 +141,13 @@ function App() {
 
   return (
     <>
-      <Navbar expand="xxl" className="bg-body-tertiary">
+      <Navbar
+        bg="light"
+        variant="light"
+        expand="lg"
+        sticky="top"
+        className="shadow-sm"
+      >
         <Container fluid>
           <Navbar.Brand
             href="#"
@@ -150,52 +156,30 @@ function App() {
               loadPopular();
             }}
           >
-            Cine finder{" "}
-            <img
-              src={MovieCinemaSVG}
-              alt="Cinema"
-              style={{ width: "20px", height: "20px", marginBottom: "3px" }}
-            />
+            <strong>Cine finder</strong>
           </Navbar.Brand>
           <Navbar.Toggle aria-controls="navbarScroll" />
           <Navbar.Collapse id="navbarScroll">
-            <Nav
-              className="me-auto my-2 my-lg-0"
-              style={{ maxHeight: "120px" }}
-              navbarScroll
-            >
+            <Nav className="me-auto">
               <Nav.Link
                 href="#favorites"
                 onClick={(e) => {
                   e.preventDefault();
                   loadFavorites();
                 }}
+                className="d-flex align-items-center"
               >
-                Favoritos{" "}
-                <BsStarFill
-                  style={{
-                    color: "#f4c542",
-                    marginBottom: "3px",
-                    width: "15px",
-                    height: "15px",
-                  }}
-                />
+                Favoritos <BsStarFill className="ms-1 text-warning" />
               </Nav.Link>
             </Nav>
-            <form onSubmit={handleSearchSubmit} style={{ marginLeft: "auto" }}>
+            <form onSubmit={handleSearchSubmit} className="d-flex">
               <TextField
                 size="small"
                 placeholder="Buscar filmes…"
                 value={query}
                 onChange={handleSearchInput}
                 variant="outlined"
-                sx={{
-                  minWidth: 280,
-                  width: 420,
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: "999px",
-                  },
-                }}
+                sx={{ minWidth: 280 }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">

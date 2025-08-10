@@ -15,6 +15,7 @@ import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
 import SearchIcon from "@mui/icons-material/Search";
 import { useFavorites } from "./favorites/FavoritesProvider.jsx";
+import TMDBAttribution from "./components/TMBDAttribution.jsx";
 
 function App() {
   const [popularMovies, setPopularMovies] = useState([]);
@@ -213,6 +214,7 @@ function App() {
         />
       )}
       <ErrorModal errorMsg={errorMsg} />
+      <TMDBAttribution />
     </>
   );
 }

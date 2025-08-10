@@ -202,6 +202,7 @@ function App() {
         show={showDetails}
         movieId={detailsId}
         onHide={() => setShowDetails(false)}
+        onPickRecommendation={(id) => setDetailsId(id)}
       />
       {pageTitle !== PageTitles.FAVORITES && (
         <PaginationControls

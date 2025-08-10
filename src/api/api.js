@@ -17,12 +17,20 @@ export async function getPopularMovies(page = 1) {
   return data;
 }
 
+export async function getSimilarMovies(movieId, page = 1) {
+  if (!movieId) throw new Error("movieId é obrigatório.");
+  const { data } = await client.get(`/movie/${movieId}/similar`, {
+    params: { language: "pt-BR", page },
+  });
+  return data;
+}
+
 export async function getMovieDetails(movieId) {
   if (!movieId) throw new Error("movieId é obrigatório.");
   const { data } = await client.get(`/movie/${movieId}`, {
     params: {
       language: "pt-BR",
-      append_to_response: "credits,videos,recommendations,images,release_dates",
+      append_to_response: "credits,videos,images,release_dates",
     },
   });
   return data;

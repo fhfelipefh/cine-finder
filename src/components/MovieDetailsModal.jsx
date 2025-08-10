@@ -1,15 +1,35 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import PropTypes from "prop-types";
-import { Modal, Row, Col, Badge, Spinner } from "react-bootstrap";
-import { getMovieDetails } from "../api/api";
-import { BsStarFill } from "react-icons/bs";
+import { Modal, Row, Col, Badge, Spinner, Button } from "react-bootstrap";
+import { getMovieDetails, getSimilarMovies } from "../api/api";
 
-const IMG_BASE = "https://image.tmdb.org/t/p/w500";
+const IMG_POSTER = "https://image.tmdb.org/t/p/w500";
+const IMG_SM = "https://image.tmdb.org/t/p/w185";
 
-export default function MovieDetailsModal({ show, movieId, onHide }) {
+function getCertification(release_dates, country = "BR") {
+  const entry = release_dates?.results?.find((r) => r.iso_3166_1 === country);
+  return entry?.release_dates?.[0]?.certification || "";
+}
+
+function getYoutubeKey(videos) {
+  const list = videos?.results || [];
+  return (
+    list.find((v) => v.site === "YouTube" && v.type === "Trailer")?.key ??
+    list.find((v) => v.site === "YouTube" && v.type === "Teaser")?.key ??
+    null
+  );
+}
+
+export default function MovieDetailsModal({
+  show,
+  movieId,
+  onHide,
+  onPickRecommendation,
+}) {
   const [loading, setLoading] = useState(false);
   const [details, setDetails] = useState(null);
   const [err, setErr] = useState("");
+  const [recs, setRecs] = useState([]);
 
   useEffect(() => {
     if (!show || !movieId) return;
@@ -33,87 +53,198 @@ export default function MovieDetailsModal({ show, movieId, onHide }) {
     };
   }, [show, movieId]);
 
-  const title = details?.title || details?.original_title || "—";
-  const year = details?.release_date
-    ? ` (${new Date(details.release_date).getFullYear()})`
-    : "";
-  const poster = details?.poster_path
-    ? `${IMG_BASE}${details.poster_path}`
-    : "/no-poster.png";
-  const rating =
-    typeof details?.vote_average === "number"
-      ? details.vote_average.toFixed(1)
-      : "–";
-  const runtime = details?.runtime ? `${details.runtime} min` : "—";
-  const genres = (details?.genres || []).map((g) => g.name);
-  const director =
-    details?.credits?.crew?.find((c) => c.job === "Director")?.name || "—";
-  const cast = (details?.credits?.cast || []).slice(0, 5).map((c) => c.name);
+  const meta = useMemo(() => {
+    if (!details) return {};
+    const title = details.title || details.original_title || "—";
+    const year = details.release_date
+      ? ` (${new Date(details.release_date).getFullYear()})`
+      : "";
+    const poster = details.poster_path
+      ? `${IMG_POSTER}${details.poster_path}`
+      : "/no-poster.png";
+    const spoken =
+      (details.spoken_languages || []).map((l) => l.english_name).join(", ") ||
+      "—";
+    const countries =
+      (details.production_countries || []).map((c) => c.name).join(", ") || "—";
+    const brCert = getCertification(details.release_dates, "BR");
+    const ytKey = getYoutubeKey(details.videos);
+    return { title, year, poster, spoken, countries, brCert, ytKey };
+  }, [details]);
+
+  useEffect(() => {
+    if (!details) {
+      setRecs([]);
+      return;
+    }
+
+    const base = details.recommendations?.results ?? [];
+    const filtered = base
+      .filter((r) => !r.adult && r.poster_path)
+      .sort(
+        (a, b) => b.vote_count - a.vote_count || b.popularity - a.popularity
+      )
+      .slice(0, 10);
+
+    if (filtered.length > 0) {
+      setRecs(filtered);
+      return;
+    }
+
+    let alive = true;
+    (async () => {
+      try {
+        const data = await getSimilarMovies(details.id);
+        if (!alive) return;
+        const fromSimilar = (data.results ?? [])
+          .filter((r) => !r.adult && r.poster_path)
+          .sort(
+            (a, b) => b.vote_count - a.vote_count || b.popularity - a.popularity
+          )
+          .slice(0, 10);
+        setRecs(fromSimilar);
+      } catch {
+        setRecs([]);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [details]);
 
   return (
-    <Modal show={show} onHide={onHide} centered size="lg" scrollable>
+    <Modal show={show} onHide={onHide} centered size="xl" scrollable>
       <Modal.Header closeButton>
         <Modal.Title>
-          {title}
-          {year}
+          {meta.title}
+          {meta.year}
         </Modal.Title>
       </Modal.Header>
 
       <Modal.Body>
         {loading && (
           <div className="d-flex justify-content-center my-4">
-            <Spinner animation="border" as="output" aria-live="polite"></Spinner>
+            <Spinner animation="border" as="output" aria-live="polite" />
           </div>
         )}
+
         {!loading && err && <p className="text-danger">{err}</p>}
 
         {!loading && !err && details && (
-          <Row className="g-3">
-            <Col xs={12} md="auto">
-              <img
-                alt={`Pôster de ${title}`}
-                src={poster}
-                style={{
-                  width: 220,
-                  height: "auto",
-                  borderRadius: 8,
-                  objectFit: "cover",
-                }}
-                loading="lazy"
-              />
-            </Col>
-            <Col>
-              <div className="d-flex align-items-center gap-2 mb-2 text-muted">
-                <BsStarFill size={14} /> <strong>{rating}</strong>
-                <span>•</span> <span>{runtime}</span>
-              </div>
+          <>
+            <Row className="g-3">
+              <Col xs={12} md="auto">
+                <img
+                  alt={`Pôster de ${meta.title}`}
+                  src={meta.poster}
+                  style={{
+                    width: 220,
+                    height: "auto",
+                    borderRadius: 8,
+                    objectFit: "cover",
+                  }}
+                  loading="lazy"
+                />
+              </Col>
 
-              {genres.length > 0 && (
+              <Col>
+                {meta.brCert && (
+                  <div className="mb-2">
+                    <small className="text-muted me-1">Classificação:</small>
+                    <Badge bg="secondary">{meta.brCert}</Badge>
+                  </div>
+                )}
+
                 <div className="mb-2">
-                  {genres.map((g) => (
-                    <Badge key={g} bg="secondary" className="me-1">
-                      {g}
-                    </Badge>
-                  ))}
+                  <small className="text-muted">Idiomas:</small> {meta.spoken}
                 </div>
-              )}
-
-              <div className="mb-2">
-                <small className="text-muted">Direção:</small> {director}
-              </div>
-
-              {cast.length > 0 && (
                 <div className="mb-3">
-                  <small className="text-muted">Elenco:</small>{" "}
-                  {cast.join(", ")}
+                  <small className="text-muted">Países:</small> {meta.countries}
                 </div>
-              )}
 
-              <p style={{ whiteSpace: "pre-line", textAlign: "justify" }}>
-                {details.overview || "Sem sinopse disponível."}
-              </p>
-            </Col>
-          </Row>
+                <div className="d-flex gap-2 flex-wrap mb-3">
+                  {details.homepage && (
+                    <Button
+                      size="sm"
+                      variant="outline-primary"
+                      as="a"
+                      href={details.homepage}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Site oficial
+                    </Button>
+                  )}
+                  {details.imdb_id && (
+                    <Button
+                      size="sm"
+                      variant="outline-secondary"
+                      as="a"
+                      href={`https://www.imdb.com/title/${details.imdb_id}/`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Ver no IMDb
+                    </Button>
+                  )}
+                </div>
+
+                <p style={{ whiteSpace: "pre-line", textAlign: "justify" }}>
+                  {details.overview || "Sem sinopse disponível."}
+                </p>
+              </Col>
+            </Row>
+
+            {meta.ytKey && (
+              <div className="mt-3">
+                <div className="ratio ratio-16x9">
+                  <iframe
+                    src={`https://www.youtube.com/embed/${meta.ytKey}`}
+                    title="Trailer"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              </div>
+            )}
+
+            {recs.length > 0 && (
+              <>
+                <hr className="my-4" />
+                <h6 className="mb-3">Recomendações</h6>
+                <div className="d-flex gap-3 flex-wrap">
+                  {recs.map((r) => {
+                    const p = r.poster_path
+                      ? `${IMG_SM}${r.poster_path}`
+                      : "/no-poster.png";
+                    const label = r.title || r.original_title || "—";
+                    return (
+                      <Button
+                        key={r.id}
+                        variant="light"
+                        className="p-0 border-0"
+                        onClick={() => onPickRecommendation?.(r.id)}
+                        title={label}
+                      >
+                        <img
+                          src={p}
+                          alt={label}
+                          loading="lazy"
+                          style={{
+                            width: 92,
+                            height: 138,
+                            objectFit: "cover",
+                            borderRadius: 6,
+                          }}
+                        />
+                      </Button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </>
         )}
       </Modal.Body>
     </Modal>
@@ -124,4 +255,5 @@ MovieDetailsModal.propTypes = {
   show: PropTypes.bool.isRequired,
   movieId: PropTypes.number,
   onHide: PropTypes.func.isRequired,
+  onPickRecommendation: PropTypes.func,
 };

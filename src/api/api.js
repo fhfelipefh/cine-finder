@@ -27,3 +27,16 @@ export async function getMovieDetails(movieId) {
   });
   return data;
 }
+
+export async function searchMovies(query, page = 1) {
+  if (!query) return { results: [], total_pages: 1, total_results: 0 };
+  const { data } = await client.get(`/search/movie`, {
+    params: {
+      query,
+      language: "pt-BR",
+      page,
+      include_adult: false,
+    },
+  });
+  return data;
+}

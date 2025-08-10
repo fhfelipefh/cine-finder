@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Button from "react-bootstrap/Button";
 import Container from "react-bootstrap/Container";
 import Nav from "react-bootstrap/Nav";
@@ -7,7 +7,7 @@ import Navbar from "react-bootstrap/Navbar";
 import Movies from "./components/Movies.jsx";
 import MovieCinemaSVG from "./assets/movie-cinema.svg";
 import "./App.css";
-import { getPopularMovies } from "./api/api.js";
+import { getPopularMovies, searchMovies } from "./api/api.js";
 import ErrorModal from "./components/ErrorModal.jsx";
 import PaginationControls from "./components/PaginationControls.jsx";
 import { BsStarFill } from "react-icons/bs";
@@ -23,6 +23,8 @@ function App() {
   const [pageTitle, setPageTitle] = useState(PageTitles.POPULAR);
   const [detailsId, setDetailsId] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [query, setQuery] = useState("");
+  const debounceRef = useRef(null);
 
   useEffect(() => {
     if (pageTitle !== PageTitles.POPULAR) return;
@@ -47,11 +49,41 @@ function App() {
     };
   }, [moviesPage, pageTitle]);
 
+  useEffect(() => {
+    if (pageTitle !== PageTitles.SEARCH) return;
+    let active = true;
+
+    const delay = debounceRef.current ? 600 : 0;
+
+    const run = async () => {
+      try {
+        setIsLoadingPopularMovies(true);
+        setErrorMsg("");
+        const data = await searchMovies(query, moviesPage);
+        if (!active) return;
+        setPopularMovies(data.results);
+        setMoviesTotalPages(data.total_pages || 1);
+      } catch (error) {
+        if (!active) return;
+        setErrorMsg(error?.message || String(error));
+      } finally {
+        if (active) setIsLoadingPopularMovies(false);
+      }
+    };
+
+    const id = setTimeout(run, delay);
+    return () => {
+      active = false;
+      clearTimeout(id);
+    };
+  }, [query, moviesPage, pageTitle]);
+
   function loadFavorites() {
     const favs = localStorage.getItem("favs");
     setPageTitle(PageTitles.FAVORITES);
     setMoviesPage(1);
     setMoviesTotalPages(1);
+    setQuery("");
     if (favs) {
       try {
         const favsArray = JSON.parse(favs);
@@ -68,11 +100,32 @@ function App() {
   function loadPopular() {
     setPageTitle(PageTitles.POPULAR);
     setMoviesPage(1);
+    setQuery("");
   }
 
   function openDetails(id) {
     setDetailsId(id);
     setShowDetails(true);
+  }
+
+  function handleSearchInput(e) {
+    const value = e.target.value;
+    setQuery(value);
+    setMoviesPage(1);
+    if (value && value.trim().length > 0) {
+      setPageTitle(PageTitles.SEARCH);
+      debounceRef.current = true;
+    } else {
+      debounceRef.current = null;
+      setPageTitle(PageTitles.POPULAR);
+    }
+  }
+
+  function handleSearchSubmit(e) {
+    e.preventDefault();
+    debounceRef.current = null;
+    setPageTitle(query.trim() ? PageTitles.SEARCH : PageTitles.POPULAR);
+    setMoviesPage(1);
   }
 
   return (
@@ -118,14 +171,18 @@ function App() {
                 />
               </Nav.Link>
             </Nav>
-            <Form className="d-flex">
+            <Form className="d-flex" onSubmit={handleSearchSubmit}>
               <Form.Control
                 type="search"
                 placeholder="Digite um título"
                 className="me-3"
                 aria-label="Search"
+                value={query}
+                onChange={handleSearchInput}
               />
-              <Button variant="outline-success">Pesquisar</Button>
+              <Button variant="outline-success" type="submit">
+                Pesquisar
+              </Button>
             </Form>
           </Navbar.Collapse>
         </Container>

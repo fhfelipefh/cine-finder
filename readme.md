@@ -75,3 +75,15 @@ Existe um arquivo `.env.example` que serve como modelo para você criar o seu.
 - [Configuração de váriaveis de ambiente no VITE](https://mayconbalves.medium.com/configurando-vari%C3%A1veis-de-ambiente-com-reactjs-5c1521768590)
 - [Importação de váriaveis de ambiente no VITE](https://stackoverflow.com/questions/30239060/uncaught-referenceerror-process-is-not-defined)
 - [Documentação imagens do TMDB](https://developers.themoviedb.org/3/getting-started/images)
+
+## Páginas
+
+![alt text](imgs/1.png)
+
+--- 
+
+![alt text](imgs/2.png)
+
+---
+
+![alt text](imgs/3.png)

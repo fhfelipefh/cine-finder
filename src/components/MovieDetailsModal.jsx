@@ -61,8 +61,8 @@ export default function MovieDetailsModal({ show, movieId, onHide }) {
 
       <Modal.Body>
         {loading && (
-          <div className="text-center my-4">
-            <Spinner animation="border" role="status" />
+          <div className="d-flex justify-content-center my-4">
+            <Spinner animation="border" as="output" aria-live="polite"></Spinner>
           </div>
         )}
         {!loading && err && <p className="text-danger">{err}</p>}

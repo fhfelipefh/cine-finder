@@ -19,7 +19,7 @@ import MovieDetailsModal from "./components/MovieDetailsModal.jsx";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
 import SearchIcon from "@mui/icons-material/Search";
-import { useFavorites } from "./favorites/FavoritesProvider.jsx";
+import { useFavorites } from "./favorites/FavoritesContext";
 import TMDBAttribution from "./components/TMBDAttribution.jsx";
 import HeroCarousel from "./components/HeroCarousel.jsx";
 

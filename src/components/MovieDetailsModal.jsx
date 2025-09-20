@@ -11,6 +11,7 @@ import {
   Tooltip,
 } from "react-bootstrap";
 import { getMovieDetails, getSimilarMovies } from "../api/api";
+import CommentsSection from "./CommentsSection";
 import { BsInfoCircle } from "react-icons/bs";
 
 const IMG_POSTER = "https://image.tmdb.org/t/p/w500";
@@ -279,6 +280,16 @@ export default function MovieDetailsModal({
                   })}
                 </div>
               </>
+            )}
+
+            <hr className="my-4" />
+            <h6 className="mb-3">Comentários</h6>
+            {details?.imdb_id ? (
+              <CommentsSection imdbId={details.imdb_id} />
+            ) : (
+              <p className="text-muted">
+                IMDb ID indisponível para este título.
+              </p>
             )}
           </>
         )}

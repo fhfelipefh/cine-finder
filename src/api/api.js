@@ -1,6 +1,7 @@
 import axios from "axios";
 
 const TMDB_ACCESS_TOKEN_AUTH = import.meta.env.VITE_TMDB_ACCESS_TOKEN_AUTH;
+const API = import.meta.env.VITE_API_URL;
 
 const client = axios.create({
   baseURL: "https://api.themoviedb.org/3",
@@ -78,4 +79,58 @@ export async function getNowPlayingMovies(page = 1) {
     },
   });
   return data;
+}
+
+export async function listComments(imdbId, page = 1, pageSize = 10) {
+  if (!imdbId) throw new Error("imdbId é obrigatório");
+  const url = `${API}/api/comments/${encodeURIComponent(imdbId)}?page=${page}&pageSize=${pageSize}`;
+  const res = await fetch(url);
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json?.success === false) {
+    const err = new Error(json?.message || "Erro ao listar comentários");
+    err.status = res.status;
+    throw err;
+  }
+  return (json.data);
+}
+
+export async function createComment(payload) {
+  const res = await fetch(`${API}/api/comments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json?.success === false) {
+    const err = new Error(json?.message || "Erro ao criar comentário");
+    err.status = res.status;
+    throw err;
+  }
+  return (json.data);
+}
+
+export async function updateComment(id, payload) {
+  const res = await fetch(`${API}/api/comments/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json?.success === false) {
+    const err = new Error(json?.message || "Erro ao atualizar comentário");
+    err.status = res.status;
+    throw err;
+  }
+  return (json.data);
+}
+
+export async function deleteComment(id) {
+  const res = await fetch(`${API}/api/comments/${id}`, { method: "DELETE" });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json?.success === false) {
+    const err = new Error(json?.message || "Erro ao deletar comentário");
+    err.status = res.status;
+    throw err;
+  }
+  return true;
 }

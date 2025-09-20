@@ -1,7 +1,7 @@
 import PropTypes from "prop-types";
 import { Button } from "react-bootstrap";
 import { BsStar, BsStarFill } from "react-icons/bs";
-import { useFavorites } from "../favorites/FavoritesProvider";
+import { useFavorites } from "../favorites/FavoritesContext";
 
 function FavoriteButton({ movieId, size = 18 }) {
   const { isFavorite, toggle } = useFavorites();

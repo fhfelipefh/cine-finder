@@ -238,14 +238,14 @@ export default function CommentsSection({ imdbId }) {
                   />
                 </Box>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Tooltip title="Editar (se permitido)">
+                  <Tooltip title="Editar">
                     <span>
                       <IconButton size="small" onClick={() => onEdit(it)}>
                         <MdEdit />
                       </IconButton>
                     </span>
                   </Tooltip>
-                  <Tooltip title="Remover (se permitido)">
+                  <Tooltip title="Remover">
                     <span>
                       <IconButton
                         size="small"

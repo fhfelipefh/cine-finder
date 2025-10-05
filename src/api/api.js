@@ -1,7 +1,20 @@
 import axios from "axios";
+import { getClientUUID } from "../utils/uuid";
 
 const TMDB_ACCESS_TOKEN_AUTH = import.meta.env.VITE_TMDB_ACCESS_TOKEN_AUTH;
 const API = import.meta.env.VITE_API_URL;
+const API_BASE = (API || "").trim().replace(/\/+$/, "");
+
+function buildUrl(path) {
+  const p = String(path || "");
+  if (!API_BASE) return p;
+  if (API_BASE.endsWith("/api") && p.startsWith("/api/")) {
+    return API_BASE + p.slice(4);
+  }
+  const left = API_BASE.endsWith("/") ? API_BASE.slice(0, -1) : API_BASE;
+  const right = p.startsWith("/") ? p : "/" + p;
+  return left + right;
+}
 
 const client = axios.create({
   baseURL: "https://api.themoviedb.org/3",
@@ -83,7 +96,12 @@ export async function getNowPlayingMovies(page = 1) {
 
 export async function listComments(imdbId, page = 1, pageSize = 10) {
   if (!imdbId) throw new Error("imdbId é obrigatório");
-  const url = `${API}/api/comments/${encodeURIComponent(imdbId)}?page=${page}&pageSize=${pageSize}`;
+  const cleanId = String(imdbId).trim();
+  const url = buildUrl(
+    `/api/comments/${encodeURIComponent(
+      cleanId
+    )}?page=${page}&pageSize=${pageSize}`
+  );
   const res = await fetch(url);
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json?.success === false) {
@@ -91,11 +109,11 @@ export async function listComments(imdbId, page = 1, pageSize = 10) {
     err.status = res.status;
     throw err;
   }
-  return (json.data);
+  return json.data;
 }
 
 export async function createComment(payload) {
-  const res = await fetch(`${API}/api/comments`, {
+  const res = await fetch(buildUrl(`/api/comments`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -106,11 +124,11 @@ export async function createComment(payload) {
     err.status = res.status;
     throw err;
   }
-  return (json.data);
+  return json.data;
 }
 
 export async function updateComment(id, payload) {
-  const res = await fetch(`${API}/api/comments/${id}`, {
+  const res = await fetch(buildUrl(`/api/comments/${String(id).trim()}`), {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -121,11 +139,13 @@ export async function updateComment(id, payload) {
     err.status = res.status;
     throw err;
   }
-  return (json.data);
+  return json.data;
 }
 
 export async function deleteComment(id) {
-  const res = await fetch(`${API}/api/comments/${id}`, { method: "DELETE" });
+  const res = await fetch(buildUrl(`/api/comments/${String(id).trim()}`), {
+    method: "DELETE",
+  });
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json?.success === false) {
     const err = new Error(json?.message || "Erro ao deletar comentário");
@@ -133,4 +153,134 @@ export async function deleteComment(id) {
     throw err;
   }
   return true;
+}
+
+export async function findMovieByImdbId(imdbId) {
+  if (!imdbId) throw new Error("imdbId é obrigatório.");
+  const { data } = await client.get(`/find/${encodeURIComponent(imdbId)}`, {
+    params: { external_source: "imdb_id", language: "pt-BR" },
+  });
+  const results = data?.movie_results || [];
+  return results[0] || null;
+}
+
+export async function getMyVotes() {
+  const uuid = getClientUUID();
+  const res = await fetch(buildUrl(`/api/votes/me`), {
+    headers: { "x-client-uuid": uuid },
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json?.success === false) {
+    const err = new Error(json?.message || "Erro ao listar meus votos");
+    err.status = res.status;
+    throw err;
+  }
+  const data = json.data;
+  const items = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.items)
+    ? data.items
+    : [];
+
+  return items.map((v) => ({
+    id: v.id || v._id,
+    imdbId: String(v.imdbId || "").trim(),
+    rating: Number(v.rating ?? 0),
+    identityType: v.identityType || "ip",
+    createdAt: v.createdAt,
+    updatedAt: v.updatedAt,
+  }));
+}
+
+export async function createOrUpdateVote(payload) {
+  const body = {
+    imdbId: String(payload?.imdbId ?? "").trim(),
+    rating: Number(payload?.rating ?? 0),
+  };
+  const uuid = getClientUUID();
+  const res = await fetch(buildUrl(`/api/votes`), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-client-uuid": uuid },
+    body: JSON.stringify({ ...body, uuid }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json?.success === false) {
+    const err = new Error(json?.message || "Erro ao registrar voto");
+    err.status = res.status;
+    throw err;
+  }
+  return json.data;
+}
+
+export async function getVote(id) {
+  const uuid = getClientUUID();
+  const res = await fetch(buildUrl(`/api/votes/by-id/${String(id).trim()}`), {
+    headers: { "x-client-uuid": uuid },
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json?.success === false) {
+    const err = new Error(json?.message || "Erro ao obter voto");
+    err.status = res.status;
+    throw err;
+  }
+  return json.data;
+}
+
+export async function updateVote(id, payload) {
+  const uuid = getClientUUID();
+  const res = await fetch(buildUrl(`/api/votes/by-id/${String(id).trim()}`), {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", "x-client-uuid": uuid },
+    body: JSON.stringify({ rating: Number(payload?.rating ?? 0), uuid }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json?.success === false) {
+    const err = new Error(json?.message || "Erro ao atualizar voto");
+    err.status = res.status;
+    throw err;
+  }
+  return json.data;
+}
+
+export async function deleteVote(id) {
+  const uuid = getClientUUID();
+  const res = await fetch(buildUrl(`/api/votes/by-id/${String(id).trim()}`), {
+    method: "DELETE",
+    headers: { "x-client-uuid": uuid },
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json?.success === false) {
+    const err = new Error(json?.message || "Erro ao remover voto");
+    err.status = res.status;
+    throw err;
+  }
+  return true;
+}
+
+export async function getRanking() {
+  const url = buildUrl(`/api/votes/ranking`);
+  if (import.meta.env.DEV) console.debug("GET", url);
+  const res = await fetch(url);
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json?.success === false) {
+    const err = new Error(json?.message || "Erro ao carregar ranking");
+    err.status = res.status;
+    throw err;
+  }
+  return json.data;
+}
+
+export async function getMovieStats(imdbId) {
+  if (!imdbId) throw new Error("imdbId é obrigatório");
+  const cleanId = String(imdbId).trim();
+  const res = await fetch(
+    buildUrl(`/api/votes/ranking/${encodeURIComponent(cleanId)}`)
+  );
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json?.success === false) {
+    const err = new Error(json?.message || "Erro ao carregar estatísticas");
+    err.status = res.status;
+    throw err;
+  }
+  return json.data;
 }

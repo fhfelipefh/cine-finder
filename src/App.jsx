@@ -22,6 +22,8 @@ import SearchIcon from "@mui/icons-material/Search";
 import { useFavorites } from "./favorites/FavoritesContext";
 import TMDBAttribution from "./components/TMBDAttribution.jsx";
 import HeroCarousel from "./components/HeroCarousel.jsx";
+import CommunityTop from "./components/CommunityTop.jsx";
+import RankingPage from "./components/RankingPage.jsx";
 
 function App() {
   const [popularMovies, setPopularMovies] = useState([]);
@@ -280,6 +282,16 @@ function App() {
               >
                 Favoritos <BsStarFill className="ms-1 text-warning" />
               </Nav.Link>
+              <Nav.Link
+                href="#ranking"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setPageTitle(PageTitles.RANKING);
+                  setQuery("");
+                }}
+              >
+                Ranking
+              </Nav.Link>
             </Nav>
             <form onSubmit={handleSearchSubmit} className="d-flex">
               <TextField
@@ -316,23 +328,36 @@ function App() {
           </Navbar.Collapse>
         </Container>
       </Navbar>
-      <HeroCarousel
-        visible={pageTitle === PageTitles.POPULAR}
-        onSelect={openDetails}
-      />
-      <Movies
-        isLoadingMovies={isLoadingPopularMovies}
-        movies={popularMovies}
-        title={moviesTitle}
-        onSelect={openDetails}
-      ></Movies>
+      {pageTitle === PageTitles.POPULAR && (
+        <>
+          <HeroCarousel visible onSelect={openDetails} />
+          <CommunityTop onSelect={openDetails} />
+          <Movies
+            isLoadingMovies={isLoadingPopularMovies}
+            movies={popularMovies}
+            title={moviesTitle}
+            onSelect={openDetails}
+          />
+        </>
+      )}
+      {pageTitle !== PageTitles.POPULAR && pageTitle !== PageTitles.RANKING && (
+        <Movies
+          isLoadingMovies={isLoadingPopularMovies}
+          movies={popularMovies}
+          title={moviesTitle}
+          onSelect={openDetails}
+        />
+      )}
+      {pageTitle === PageTitles.RANKING && (
+        <RankingPage onSelectMovie={openDetails} />
+      )}
       <MovieDetailsModal
         show={showDetails}
         movieId={detailsId}
         onHide={() => setShowDetails(false)}
         onPickRecommendation={(id) => setDetailsId(id)}
       />
-      {pageTitle !== PageTitles.FAVORITES && (
+      {pageTitle !== PageTitles.FAVORITES && pageTitle !== PageTitles.RANKING && (
         <PaginationControls
           currentPage={moviesPage}
           totalPages={moviesTotalPages}

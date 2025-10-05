@@ -267,7 +267,14 @@ export async function getRanking() {
     err.status = res.status;
     throw err;
   }
-  return json.data;
+  const raw = json.data;
+  const list = Array.isArray(raw) ? raw : Array.isArray(raw?.items) ? raw.items : [];
+  return list.map((r) => ({
+    ...r,
+    imdbId: String(r.imdbId || "").trim(),
+    average: Number(r.average ?? r.avgRating ?? r.avg ?? 0),
+    count: Number(r.count ?? r.votes ?? r.total ?? 0),
+  }));
 }
 
 export async function getMovieStats(imdbId) {
@@ -282,5 +289,12 @@ export async function getMovieStats(imdbId) {
     err.status = res.status;
     throw err;
   }
-  return json.data;
+  const d = json.data || {};
+  return {
+    ...d,
+    imdbId: String(d.imdbId || cleanId),
+    average: Number(d.average ?? d.avgRating ?? d.avg ?? 0),
+    count: Number(d.count ?? d.votes ?? d.total ?? 0),
+    histogram: d.histogram || d.breakdown || undefined,
+  };
 }

@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import Container from "react-bootstrap/Container";
 import Nav from "react-bootstrap/Nav";
 import Navbar from "react-bootstrap/Navbar";
+import NavDropdown from "react-bootstrap/NavDropdown";
+import Button from "react-bootstrap/Button";
 import Movies from "./components/Movies.jsx";
 import "./App.css";
 import {
@@ -24,6 +26,8 @@ import TMDBAttribution from "./components/TMBDAttribution.jsx";
 import HeroCarousel from "./components/HeroCarousel.jsx";
 import CommunityTop from "./components/CommunityTop.jsx";
 import RankingPage from "./components/RankingPage.jsx";
+import FavoriteNotesModal from "./favorites/FavoriteNotesModal.jsx";
+import { useAuth } from "./auth/AuthContext";
 
 function App() {
   const [popularMovies, setPopularMovies] = useState([]);
@@ -37,8 +41,20 @@ function App() {
   const [query, setQuery] = useState("");
   const [genres, setGenres] = useState([CategoryAllOption]);
   const [selectedGenre, setSelectedGenre] = useState(CategoryAllOption.id);
+  const [editingFavorite, setEditingFavorite] = useState(null);
   const debounceRef = useRef(null);
-  const { ids: favoriteIds } = useFavorites();
+  const {
+    items: favoriteItems,
+    refresh: refreshFavorites,
+    updateNotes: updateFavoriteNotes,
+  } = useFavorites();
+  const {
+    isAuthenticated,
+    user,
+    openAuthModal,
+    logout,
+    openAccountModal,
+  } = useAuth();
 
   function runCancelable(delayMs, work) {
     let active = true;
@@ -172,25 +188,54 @@ function App() {
     setMoviesTotalPages(1);
     setQuery("");
     setErrorMsg("");
+    if (!isAuthenticated) {
+      setPopularMovies([]);
+      openAuthModal("login");
+      setErrorMsg("Faça login para acessar os favoritos.");
+      return;
+    }
     setIsLoadingPopularMovies(true);
-
     try {
-      if (!favoriteIds || favoriteIds.length === 0) {
-        setPopularMovies([]);
-        return;
-      }
-
-      const details = await Promise.all(
-        favoriteIds.map((id) => getMovieDetails(id).catch(() => null))
-      );
-
-      setPopularMovies(details.filter(Boolean));
+      const latest = await refreshFavorites();
+      const source = Array.isArray(latest) && latest.length ? latest : favoriteItems;
+      const mapped = (source || [])
+        .map((fav) => {
+          const movie = fav?.movie;
+          if (!movie) return null;
+          return {
+            ...movie,
+            __favoriteImdbId: fav.imdbId,
+            __favoriteNotes: fav.notes,
+          };
+        })
+        .filter(Boolean);
+      setPopularMovies(mapped);
     } catch (e) {
       setPopularMovies([]);
       setErrorMsg(e?.message || "Erro ao carregar favoritos.");
     } finally {
       setIsLoadingPopularMovies(false);
     }
+  }
+
+  function openFavoriteNotesEditor(payload) {
+    setEditingFavorite(payload);
+  }
+
+  async function saveFavoriteNotes(value) {
+    if (!editingFavorite) return;
+    const text = String(value ?? "");
+    await updateFavoriteNotes(editingFavorite.imdbId, text);
+    setEditingFavorite((prev) =>
+      prev ? { ...prev, notes: text } : prev
+    );
+    setPopularMovies((prev) =>
+      prev.map((movie) =>
+        movie.__favoriteImdbId === editingFavorite.imdbId
+          ? { ...movie, __favoriteNotes: text }
+          : movie
+      )
+    );
   }
 
   function loadPopular() {
@@ -249,6 +294,8 @@ function App() {
     pageTitle === PageTitles.CATEGORY
       ? `Categoria: ${genres.find((g) => g.id == selectedGenre)?.name || ""}`
       : pageTitle;
+  const isFavoritesPage = pageTitle === PageTitles.FAVORITES;
+  const editFavoriteHandler = isFavoritesPage ? openFavoriteNotesEditor : undefined;
 
   return (
     <>
@@ -293,38 +340,60 @@ function App() {
                 Ranking
               </Nav.Link>
             </Nav>
-            <form onSubmit={handleSearchSubmit} className="d-flex">
-              <TextField
-                size="small"
-                placeholder="Buscar filmes…"
-                value={query}
-                onChange={handleSearchInput}
-                variant="outlined"
-                sx={{ minWidth: 280 }}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-              <select
-                className="form-select ms-2"
-                style={{ width: 180 }}
-                value={selectedGenre}
-                onChange={handleGenreChange}
-                aria-label="Filtrar por categoria"
-              >
-                {genres.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
-            </form>
+            <div className="d-flex align-items-center gap-2 mt-2 mt-lg-0">
+              <form onSubmit={handleSearchSubmit} className="d-flex">
+                <TextField
+                  size="small"
+                  placeholder="Buscar filmes."
+                  value={query}
+                  onChange={handleSearchInput}
+                  variant="outlined"
+                  sx={{ minWidth: 280 }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon />
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+                <select
+                  className="form-select ms-2"
+                  style={{ width: 180 }}
+                  value={selectedGenre}
+                  onChange={handleGenreChange}
+                  aria-label="Filtrar por categoria"
+                >
+                  {genres.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+              </form>
+              {isAuthenticated ? (
+                <NavDropdown
+                  align="end"
+                  title={user?.name || user?.email || "Minha conta"}
+                  id="auth-nav-dropdown"
+                >
+                  <NavDropdown.Header>
+                    {user?.email || "Usuário"}
+                  </NavDropdown.Header>
+                  <NavDropdown.Item onClick={openAccountModal}>
+                    Minha conta
+                  </NavDropdown.Item>
+                  <NavDropdown.Divider />
+                  <NavDropdown.Item onClick={logout}>Sair</NavDropdown.Item>
+                </NavDropdown>
+              ) : (
+                <Button size="sm" onClick={() => openAuthModal("login")}>
+                  Entrar
+                </Button>
+              )}
+            </div>
           </Navbar.Collapse>
         </Container>
       </Navbar>
@@ -337,6 +406,7 @@ function App() {
             movies={popularMovies}
             title={moviesTitle}
             onSelect={openDetails}
+            onEditFavorite={editFavoriteHandler}
           />
         </>
       )}
@@ -346,6 +416,7 @@ function App() {
           movies={popularMovies}
           title={moviesTitle}
           onSelect={openDetails}
+          onEditFavorite={editFavoriteHandler}
         />
       )}
       {pageTitle === PageTitles.RANKING && (
@@ -356,6 +427,13 @@ function App() {
         movieId={detailsId}
         onHide={() => setShowDetails(false)}
         onPickRecommendation={(id) => setDetailsId(id)}
+      />
+      <FavoriteNotesModal
+        show={Boolean(editingFavorite)}
+        title={editingFavorite?.title || ""}
+        notes={editingFavorite?.notes || ""}
+        onHide={() => setEditingFavorite(null)}
+        onSave={saveFavoriteNotes}
       />
       {pageTitle !== PageTitles.FAVORITES && pageTitle !== PageTitles.RANKING && (
         <PaginationControls
@@ -372,3 +450,4 @@ function App() {
 }
 
 export default App;
+

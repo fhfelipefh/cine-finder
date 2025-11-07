@@ -8,6 +8,7 @@ import {
   getMyVotes,
   deleteVote,
 } from "../api/api";
+import { useAuth } from "../auth/AuthContext";
 
 function formatAvg(n) {
   if (!n && n !== 0) return "–";
@@ -19,13 +20,18 @@ export default function CommunityRating({ imdbId }) {
   const [loading, setLoading] = useState(false);
   const [myVotes, setMyVotes] = useState([]);
   const [sending, setSending] = useState(false);
+  const { isAuthenticated, openAuthModal } = useAuth();
   const myVote = useMemo(
     () => myVotes.find((v) => v.imdbId === imdbId) || null,
     [myVotes, imdbId]
   );
 
   async function refresh() {
-    if (!imdbId) return;
+    if (!imdbId || !isAuthenticated) {
+      setStats(null);
+      setMyVotes([]);
+      return;
+    }
     setLoading(true);
     try {
       const [s, mine] = await Promise.all([
@@ -41,10 +47,14 @@ export default function CommunityRating({ imdbId }) {
 
   useEffect(() => {
     refresh();
-  }, [imdbId]);
+  }, [imdbId, isAuthenticated]);
 
   async function onChangeVote(_, value) {
     if (!value) return;
+    if (!isAuthenticated) {
+      openAuthModal("login");
+      return;
+    }
     try {
       setSending(true);
       await createOrUpdateVote({ imdbId, rating: value });
@@ -59,6 +69,10 @@ export default function CommunityRating({ imdbId }) {
 
   async function onRemoveVote() {
     if (!myVote) return;
+    if (!isAuthenticated) {
+      openAuthModal("login");
+      return;
+    }
     try {
       setSending(true);
       await deleteVote(myVote.id);
@@ -84,6 +98,26 @@ export default function CommunityRating({ imdbId }) {
     const max = Math.max(1, ...arr.map((b) => b.count));
     return arr.map((b) => ({ ...b, pct: Math.round((b.count / max) * 100) }));
   }, [hist]);
+
+  if (!isAuthenticated) {
+    return (
+      <Box
+        sx={{
+          p: 2,
+          border: "1px solid",
+          borderColor: "divider",
+          borderRadius: 2,
+          bgcolor: "background.paper",
+          textAlign: "center",
+        }}
+      >
+        <p className="mb-2">Faça login para participar da avaliação.</p>
+        <MButton variant="contained" size="small" onClick={() => openAuthModal("login")}>
+          Entrar
+        </MButton>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: 2, bgcolor: "background.paper" }}>

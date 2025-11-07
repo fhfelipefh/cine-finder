@@ -6,6 +6,7 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Card from "react-bootstrap/Card";
 import { BsStarFill } from "react-icons/bs";
+import { useAuth } from "../auth/AuthContext";
 
 const IMG_BASE = "https://image.tmdb.org/t/p/w342";
 
@@ -13,8 +14,13 @@ export default function CommunityTop({ limit = 8, onSelect }) {
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState([]);
   const [error, setError] = useState("");
+  const { isAuthenticated, openAuthModal } = useAuth();
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      setItems([]);
+      return;
+    }
     let alive = true;
     (async () => {
       try {
@@ -45,30 +51,56 @@ export default function CommunityTop({ limit = 8, onSelect }) {
     return () => {
       alive = false;
     };
-  }, [limit]);
+  }, [limit, isAuthenticated]);
 
   const content = useMemo(() => {
-    if (loading) return <p className="text-muted">Carregando ranking…</p>;
+    if (!isAuthenticated)
+      return (
+        <p className="text-muted">
+          Faça login para ver o top da comunidade.{" "}
+          <button
+            type="button"
+            className="btn btn-link p-0 align-baseline"
+            onClick={() => openAuthModal("login")}
+          >
+            Entrar
+          </button>
+        </p>
+      );
+    if (loading) return <p className="text-muted">Carregando ranking.</p>;
     if (error) return <p className="text-danger">{error}</p>;
     if (!items.length) return <p className="text-muted">Sem votos ainda.</p>;
     return (
       <Row xs={2} sm={3} md={4} lg={6} xl={8} className="g-3">
         {items.map((it) => {
           const m = it.tmdb;
-          const poster = m?.poster_path ? `${IMG_BASE}${m.poster_path}` : "/no-poster.png";
-          const title = m?.title || m?.original_title || "–";
+          const poster = m?.poster_path
+            ? `${IMG_BASE}${m.poster_path}`
+            : "/no-poster.png";
+          const title = m?.title || m?.original_title || "-";
           const rating = Number(it.average || 0).toFixed(1);
-          const year = m?.release_date ? new Date(m.release_date).getFullYear() : "";
+          const year = m?.release_date
+            ? new Date(m.release_date).getFullYear()
+            : "";
           return (
             <Col key={`${it.imdbId}`}>
               <Card className="h-100" onClick={() => onSelect?.(m?.id)}>
-                <Card.Img variant="top" src={poster} alt={`Pôster de ${title}`} loading="lazy" />
+                <Card.Img
+                  variant="top"
+                  src={poster}
+                  alt={`Pôster de ${title}`}
+                  loading="lazy"
+                />
                 <Card.Body>
                   <Card.Title className="title">{title}</Card.Title>
-                  <Card.Subtitle className="text-muted mb-2">{year}</Card.Subtitle>
+                  <Card.Subtitle className="text-muted mb-2">
+                    {year}
+                  </Card.Subtitle>
                   <div className="rating" aria-label={`Média ${rating}`}>
                     <BsStarFill size={14} />
-                    <span>{rating} ({it.count})</span>
+                    <span>
+                      {rating} ({it.count})
+                    </span>
                   </div>
                 </Card.Body>
               </Card>
@@ -77,7 +109,7 @@ export default function CommunityTop({ limit = 8, onSelect }) {
         })}
       </Row>
     );
-  }, [items, loading, error, onSelect]);
+  }, [items, loading, error, onSelect, isAuthenticated, openAuthModal]);
 
   return (
     <Container className="my-4">

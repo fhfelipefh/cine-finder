@@ -10,6 +10,7 @@ import Tab from "react-bootstrap/Tab";
 import Form from "react-bootstrap/Form";
 import { BsStarFill, BsPencilSquare, BsTrash } from "react-icons/bs";
 import { getRanking, findMovieByImdbId, getMyVotes, updateVote, deleteVote } from "../api/api";
+import { useAuth } from "../auth/AuthContext";
 
 const IMG_BASE = "https://image.tmdb.org/t/p/w342";
 
@@ -17,8 +18,13 @@ function TopList({ onSelect }) {
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState([]);
   const [error, setError] = useState("");
+  const { isAuthenticated, openAuthModal } = useAuth();
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      setItems([]);
+      return;
+    }
     let alive = true;
     (async () => {
       try {
@@ -47,9 +53,18 @@ function TopList({ onSelect }) {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [isAuthenticated]);
 
-  if (loading) return <p className="text-muted">Carregando ranking…</p>;
+  if (!isAuthenticated)
+    return (
+      <p className="text-muted">
+        Faça login para ver o ranking.{" "}
+        <button className="btn btn-link p-0 align-baseline" onClick={() => openAuthModal("login")}>
+          Entrar
+        </button>
+      </p>
+    );
+  if (loading) return <p className="text-muted">Carregando ranking.</p>;
   if (error) return <p className="text-danger">{error}</p>;
   if (!items.length) return <p className="text-muted">Sem votos ainda.</p>;
 
@@ -58,7 +73,7 @@ function TopList({ onSelect }) {
       {items.map((it) => {
         const m = it.tmdb;
         const poster = m?.poster_path ? `${IMG_BASE}${m.poster_path}` : "/no-poster.png";
-        const title = m?.title || m?.original_title || "–";
+        const title = m?.title || m?.original_title || "-";
         const rating = Number(it.average || 0).toFixed(1);
         const year = m?.release_date ? new Date(m.release_date).getFullYear() : "";
         return (
@@ -70,7 +85,9 @@ function TopList({ onSelect }) {
                 <Card.Subtitle className="text-muted mb-2">{year}</Card.Subtitle>
                 <div className="rating" aria-label={`Média ${rating}`}>
                   <BsStarFill size={14} />
-                  <span>{rating} ({it.count})</span>
+                  <span>
+                    {rating} ({it.count})
+                  </span>
                 </div>
               </Card.Body>
             </Card>
@@ -90,8 +107,13 @@ function MyVotes({ onSelect }) {
   const [editing, setEditing] = useState(null);
   const [newRating, setNewRating] = useState(0);
   const [details, setDetails] = useState({});
+  const { isAuthenticated, openAuthModal } = useAuth();
 
   async function refresh() {
+    if (!isAuthenticated) {
+      setItems([]);
+      return;
+    }
     setLoading(true);
     try {
       const mine = await getMyVotes();
@@ -105,9 +127,13 @@ function MyVotes({ onSelect }) {
 
   useEffect(() => {
     refresh();
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
+    if (!items.length) {
+      setDetails({});
+      return;
+    }
     let alive = true;
     (async () => {
       try {
@@ -145,7 +171,7 @@ function MyVotes({ onSelect }) {
     }
   }
 
-  async function onDelete(it) {
+  async function onDeleteVote(it) {
     try {
       await deleteVote(it.id);
       await refresh();
@@ -154,7 +180,16 @@ function MyVotes({ onSelect }) {
     }
   }
 
-  if (loading) return <p className="text-muted">Carregando…</p>;
+  if (!isAuthenticated)
+    return (
+      <p className="text-muted">
+        Faça login para consultar seus votos.{" "}
+        <button className="btn btn-link p-0 align-baseline" onClick={() => openAuthModal("login")}>
+          Entrar
+        </button>
+      </p>
+    );
+  if (loading) return <p className="text-muted">Carregando.</p>;
   if (error) return <p className="text-danger">{error}</p>;
   if (!items.length) return <p className="text-muted">Você ainda não votou em nenhum filme.</p>;
 
@@ -176,29 +211,36 @@ function MyVotes({ onSelect }) {
                 onClick={() => tmdb?.id && onSelect?.(tmdb.id)}
               />
               <div className="flex-grow-1" style={{ minWidth: 220 }}>
-                <div><strong>{title}</strong> {year && <span className="text-muted">({year})</span>}</div>
-                <div className="text-muted small">IMDb: {it.imdbId} • Seu voto: {it.rating}</div>
+                <div>
+                  <strong>{title}</strong>{" "}
+                  {year && <span className="text-muted">({year})</span>}
+                </div>
+                <div className="text-muted small">
+                  IMDb: {it.imdbId} • Seu voto: {it.rating}
+                </div>
               </div>
               {editing?.id === it.id ? (
                 <div className="d-flex align-items-center gap-2 ms-auto">
-                  <Form.Select
-                    value={newRating}
-                    onChange={(e) => setNewRating(e.target.value)}
-                    style={{ width: 80 }}
-                  >
+                  <Form.Select value={newRating} onChange={(e) => setNewRating(e.target.value)} style={{ width: 80 }}>
                     {Array.from({ length: 10 }, (_, i) => 10 - i).map((n) => (
-                      <option key={n} value={n}>{n}</option>
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
                     ))}
                   </Form.Select>
-                  <Button variant="success" size="sm" onClick={() => onSave(it)}>Salvar</Button>
-                  <Button variant="secondary" size="sm" onClick={() => setEditing(null)}>Cancelar</Button>
+                  <Button variant="success" size="sm" onClick={() => onSave(it)}>
+                    Salvar
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={() => setEditing(null)}>
+                    Cancelar
+                  </Button>
                 </div>
               ) : (
                 <div className="d-flex align-items-center gap-2 ms-auto">
                   <Button variant="outline-primary" size="sm" onClick={() => { setEditing(it); setNewRating(it.rating); }}>
                     <BsPencilSquare /> Editar
                   </Button>
-                  <Button variant="outline-danger" size="sm" onClick={() => onDelete(it)}>
+                  <Button variant="outline-danger" size="sm" onClick={() => onDeleteVote(it)}>
                     <BsTrash /> Remover
                   </Button>
                 </div>
@@ -210,6 +252,8 @@ function MyVotes({ onSelect }) {
     </div>
   );
 }
+
+MyVotes.propTypes = { onSelect: PropTypes.func };
 
 export default function RankingPage({ onSelectMovie }) {
   const [key, setKey] = useState("top");

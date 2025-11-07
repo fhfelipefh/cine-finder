@@ -6,6 +6,7 @@ import {
   updateComment,
   deleteComment,
 } from "../api/api";
+import { useAuth } from "../auth/AuthContext";
 import {
   Box,
   Rating,
@@ -59,13 +60,13 @@ export default function CommentsSection({ imdbId }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const [author, setAuthor] = useState("");
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const [editing, setEditing] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
+  const { isAuthenticated, user, openAuthModal } = useAuth();
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / pageSize)),
@@ -73,7 +74,11 @@ export default function CommentsSection({ imdbId }) {
   );
 
   useEffect(() => {
-    if (!imdbId) return;
+    if (!imdbId || !isAuthenticated) {
+      setItems([]);
+      setTotal(0);
+      return;
+    }
     let active = true;
     (async () => {
       try {
@@ -93,19 +98,29 @@ export default function CommentsSection({ imdbId }) {
     return () => {
       active = false;
     };
-  }, [imdbId, page, pageSize]);
+  }, [imdbId, page, pageSize, isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setEditing(null);
+      resetForm();
+    }
+  }, [isAuthenticated]);
 
   function resetForm() {
-    setAuthor("");
     setRating(0);
     setComment("");
   }
 
-  async function handleSubmit(e) {
+    async function handleSubmit(e) {
     e?.preventDefault?.();
     if (!imdbId) return;
-    if (!author.trim() || !comment.trim() || rating <= 0) {
-      setError("Preencha nome, nota e comentário.");
+    if (!comment.trim() || rating <= 0) {
+      setError("Preencha nota e comentário.");
+      return;
+    }
+    if (!isAuthenticated) {
+      openAuthModal("login");
       return;
     }
     try {
@@ -113,7 +128,6 @@ export default function CommentsSection({ imdbId }) {
       setError("");
       if (editing) {
         const updated = await updateComment(editing.id, {
-          author: author.trim(),
           rating,
           comment: comment.trim(),
         });
@@ -124,7 +138,6 @@ export default function CommentsSection({ imdbId }) {
       } else {
         const created = await createComment({
           imdbId,
-          author: author.trim(),
           rating,
           comment: comment.trim(),
         });
@@ -134,22 +147,13 @@ export default function CommentsSection({ imdbId }) {
       resetForm();
     } catch (e) {
       const msg = e?.message || "Erro ao enviar comentário";
-      if (e?.status === 400) {
-        setError(msg + " — revise o texto e os campos.");
-      } else if (e?.status === 403) {
-        setError(
-          msg +
-            " — você só pode editar/apagar do mesmo IP e até 10 minutos após criar."
-        );
-      } else {
-        setError(msg);
-      }
+      setError(msg);
     } finally {
       setSubmitting(false);
     }
   }
 
-  function onEdit(it) {
+function onEdit(it) {
     setEditing(it);
     setAuthor(getAuthorName(it) || "");
     setRating(it.rating || 0);
@@ -184,7 +188,24 @@ export default function CommentsSection({ imdbId }) {
   }, [items]);
 
   let listContent;
-  if (loading) {
+  if (!isAuthenticated) {
+    listContent = (
+      <Box
+        sx={{
+          p: 2,
+          border: "1px dashed",
+          borderColor: "divider",
+          borderRadius: 2,
+          textAlign: "center",
+        }}
+      >
+        <p className="mb-2">Faça login para ver os comentários.</p>
+        <MButton variant="outlined" size="small" onClick={() => openAuthModal("login")}>
+          Entrar
+        </MButton>
+      </Box>
+    );
+  } else if (loading) {
     listContent = (
       <Box sx={{ display: "flex", justifyContent: "center", my: 4 }}>
         <CircularProgress />
@@ -199,69 +220,88 @@ export default function CommentsSection({ imdbId }) {
   } else {
     listContent = (
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        {items.map((it) => (
-          <Box
-            key={it.id}
-            sx={{
-              display: "flex",
-              gap: 2,
-              p: 2,
-              borderRadius: 2,
-              border: "1px solid",
-              borderColor: "divider",
-              bgcolor: "background.paper",
-            }}
-          >
-            <Avatar sx={{ bgcolor: "primary.main" }}>
-              {initials(getAuthorName(it))}
-            </Avatar>
-            <Box sx={{ flex: 1 }}>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 1,
-                  flexWrap: "wrap",
-                }}
-              >
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <strong>{getAuthorName(it)}</strong>
-                  <Rating
-                    readOnly
-                    value={Number(it.rating) || 0}
-                    size="small"
-                  />
-                  <Chip
-                    label={humanDate(it.updatedAt || it.createdAt)}
-                    size="small"
-                  />
+        {items.map((it) => {
+          const commentUserId = String(
+            it.userId ||
+              it.user?._id ||
+              it.user?.id ||
+              it.author?._id ||
+              it.author?.id ||
+              ""
+          );
+          const currentUserId = String(user?.id || user?._id || "");
+          const isOwner = commentUserId && currentUserId && commentUserId === currentUserId;
+          const isAdmin = user?.role === "admin";
+          const canEdit = isAdmin || isOwner;
+          const canDelete = isAdmin;
+          return (
+            <Box
+              key={it.id}
+              sx={{
+                display: "flex",
+                gap: 2,
+                p: 2,
+                borderRadius: 2,
+                border: "1px solid",
+                borderColor: "divider",
+                bgcolor: "background.paper",
+              }}
+            >
+              <Avatar sx={{ bgcolor: "primary.main" }}>
+                {initials(getAuthorName(it))}
+              </Avatar>
+              <Box sx={{ flex: 1 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 1,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <strong>{getAuthorName(it)}</strong>
+                    <Rating
+                      readOnly
+                      value={Number(it.rating) || 0}
+                      size="small"
+                    />
+                    <Chip
+                      label={humanDate(it.updatedAt || it.createdAt)}
+                      size="small"
+                    />
+                  </Box>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    {canEdit && (
+                      <Tooltip title="Editar">
+                        <span>
+                          <IconButton size="small" onClick={() => onEdit(it)}>
+                            <MdEdit />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    )}
+                    {canDelete && (
+                      <Tooltip title="Remover">
+                        <span>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => setConfirmDel(it)}
+                          >
+                            <MdDelete />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    )}
+                  </Box>
                 </Box>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Tooltip title="Editar">
-                    <span>
-                      <IconButton size="small" onClick={() => onEdit(it)}>
-                        <MdEdit />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                  <Tooltip title="Remover">
-                    <span>
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => setConfirmDel(it)}
-                      >
-                        <MdDelete />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                </Box>
+                <Box sx={{ whiteSpace: "pre-wrap", mt: 1 }}>{it.comment}</Box>
               </Box>
-              <Box sx={{ whiteSpace: "pre-wrap", mt: 1 }}>{it.comment}</Box>
             </Box>
-          </Box>
-        ))}
+          );
+        })}
       </Box>
     );
   }
@@ -277,58 +317,70 @@ export default function CommentsSection({ imdbId }) {
           <Rating value={avgRating} precision={0.5} readOnly />
         </Box>
       </Box>
-      <Box
-        component="form"
-        onSubmit={handleSubmit}
-        sx={{
-          p: 2,
-          border: "1px solid",
-          borderColor: "divider",
-          borderRadius: 2,
-          mb: 2,
-          bgcolor: "background.paper",
-        }}
-      >
-        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+      {isAuthenticated ? (
+        <Box
+          component="form"
+          onSubmit={handleSubmit}
+          sx={{
+            p: 2,
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: 2,
+            mb: 2,
+            bgcolor: "background.paper",
+          }}
+        >
+          <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <span>Nota</span>
+              <Rating value={rating} onChange={(_, v) => setRating(v || 0)} />
+            </Box>
+          </Box>
           <TextField
-            label="Seu nome"
-            value={author}
-            onChange={(e) => setAuthor(e.target.value)}
-            size="small"
-            sx={{ flex: 1, minWidth: 180 }}
+            label="Escreva um comentário"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            multiline
+            minRows={2}
+            sx={{ mt: 2, width: "100%" }}
           />
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <span>Nota</span>
-            <Rating value={rating} onChange={(_, v) => setRating(v || 0)} />
+          <Box sx={{ display: "flex", gap: 1, mt: 2 }}>
+            <MButton type="submit" variant="contained" disabled={submitting}>
+              {editing ? "Salvar alterações" : "Publicar"}
+            </MButton>
+            {editing && (
+              <MButton
+                variant="text"
+                color="inherit"
+                disabled={submitting}
+                onClick={() => {
+                  setEditing(null);
+                  resetForm();
+                }}
+              >
+                Cancelar
+              </MButton>
+            )}
           </Box>
         </Box>
-        <TextField
-          label="Escreva um comentário"
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          multiline
-          minRows={2}
-          sx={{ mt: 2, width: "100%" }}
-        />
-        <Box sx={{ display: "flex", gap: 1, mt: 2 }}>
-          <MButton type="submit" variant="contained" disabled={submitting}>
-            {editing ? "Salvar alterações" : "Publicar"}
+      ) : (
+        <Box
+          sx={{
+            p: 2,
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: 2,
+            mb: 2,
+            bgcolor: "background.paper",
+            textAlign: "center",
+          }}
+        >
+          <p className="mb-2">Faça login para comentar.</p>
+          <MButton variant="contained" size="small" onClick={() => openAuthModal("login")}>
+            Entrar
           </MButton>
-          {editing && (
-            <MButton
-              variant="text"
-              color="inherit"
-              disabled={submitting}
-              onClick={() => {
-                setEditing(null);
-                resetForm();
-              }}
-            >
-              Cancelar
-            </MButton>
-          )}
         </Box>
-      </Box>
+      )}
 
       <Divider sx={{ my: 2 }} />
 
@@ -365,9 +417,9 @@ export default function CommentsSection({ imdbId }) {
           <Modal.Title>Remover comentário</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Tem certeza que deseja remover este comentário? Essa ação só é
-          permitida para o mesmo IP do autor e dentro de 10 minutos após a
-          criação.
+          Tem certeza que deseja remover este comentário? Apenas administradores podem
+          executar esta ação.
+
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setConfirmDel(null)}>
@@ -385,3 +437,12 @@ export default function CommentsSection({ imdbId }) {
 CommentsSection.propTypes = {
   imdbId: PropTypes.string.isRequired,
 };
+
+
+
+
+
+
+
+
+

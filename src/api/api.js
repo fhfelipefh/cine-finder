@@ -455,6 +455,107 @@ export async function deleteFavorite(imdbId) {
   return true;
 }
 
+export async function listMyListEntries({
+  status,
+  priority,
+  search,
+  sortBy = "updatedAt",
+  sortDirection = "desc",
+  page = 1,
+  pageSize = 8,
+} = {}) {
+  const query = {
+    page,
+    pageSize,
+    sortBy,
+    sortDirection,
+  };
+  if (status && status !== "all") query.status = status;
+  if (priority && priority !== "all") query.priority = priority;
+  if (search) query.search = search;
+  const data = await request(`/my-list`, { query });
+  return normalizePagedResult(data, page, pageSize);
+}
+
+export async function getMyListStats() {
+  return request(`/my-list/stats`);
+}
+
+export async function upsertMyListEntry(payload = {}) {
+  const body = {
+    imdbId: sanitizeImdbId(payload?.imdbId),
+    status: payload?.status,
+    score:
+      payload?.score === null || payload?.score === undefined
+        ? undefined
+        : Number(payload.score),
+    progress:
+      payload?.progress === null || payload?.progress === undefined
+        ? undefined
+        : Number(payload.progress),
+    rewatchCount:
+      payload?.rewatchCount === null || payload?.rewatchCount === undefined
+        ? undefined
+        : Number(payload.rewatchCount),
+    priority: payload?.priority,
+    notes:
+      payload?.notes === undefined ? undefined : String(payload.notes ?? ""),
+    tags: Array.isArray(payload?.tags) ? payload.tags : undefined,
+    startedAt: payload?.startedAt,
+    finishedAt: payload?.finishedAt,
+  };
+  return request(`/my-list`, { method: "POST", body });
+}
+
+export async function updateMyListEntry(id, payload = {}) {
+  if (!id) throw new Error("ID obrigat�rio para atualizar a lista pessoal.");
+  const body = {};
+  const allowed = [
+    "status",
+    "priority",
+    "notes",
+    "tags",
+    "startedAt",
+    "finishedAt",
+    "isHidden",
+    "title",
+  ];
+  allowed.forEach((key) => {
+    if (payload[key] !== undefined) body[key] = payload[key];
+  });
+  if (payload.score !== undefined) body.score = Number(payload.score);
+  if (payload.progress !== undefined) body.progress = Number(payload.progress);
+  if (payload.rewatchCount !== undefined)
+    body.rewatchCount = Number(payload.rewatchCount);
+  return request(`/my-list/${String(id).trim()}`, { method: "PUT", body });
+}
+
+export async function deleteMyListEntry(id) {
+  if (!id) throw new Error("ID obrigat�rio para remover da lista.");
+  await request(`/my-list/${String(id).trim()}`, { method: "DELETE" });
+  return true;
+}
+
+export async function getMyListEntryByImdb(imdbId) {
+  const clean = sanitizeImdbId(imdbId);
+  const data = await request(`/my-list`, {
+    query: { imdbId: clean, page: 1, pageSize: 1 },
+  });
+  const items = Array.isArray(data?.items)
+    ? data.items
+    : Array.isArray(data?.results)
+    ? data.results
+    : [];
+  const found =
+    items.find((item) => {
+      const candidate =
+        item?.imdbId || item?.movie?.imdbId || item?.movie?.imdbID || "";
+      if (!candidate) return false;
+      return sanitizeImdbId(candidate) === clean;
+    }) || null;
+  return found;
+}
+
 export async function listCatalogMovies({ page = 1, pageSize = 20 } = {}) {
   const data = await request(`/movies`, { query: { page, pageSize } });
   return normalizePagedResult(data, page, pageSize);

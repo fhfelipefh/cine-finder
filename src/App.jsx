@@ -28,6 +28,8 @@ import CommunityTop from "./components/CommunityTop.jsx";
 import RankingPage from "./components/RankingPage.jsx";
 import FavoriteNotesModal from "./favorites/FavoriteNotesModal.jsx";
 import { useAuth } from "./auth/AuthContext";
+import MyListDashboard from "./components/MyListDashboard.jsx";
+import ViewListIcon from "@mui/icons-material/ViewList";
 
 function App() {
   const [popularMovies, setPopularMovies] = useState([]);
@@ -265,6 +267,16 @@ function App() {
     setSelectedGenre(CategoryAllOption.id);
   }
 
+  function openMyListTab() {
+    setPageTitle(PageTitles.MY_LIST);
+    setMoviesPage(1);
+    setQuery("");
+    setSelectedGenre(CategoryAllOption.id);
+    if (!isAuthenticated) {
+      openAuthModal("login");
+    }
+  }
+
   function openDetails(id) {
     setDetailsId(id);
     setShowDetails(true);
@@ -359,6 +371,16 @@ function App() {
               >
                 Ranking
               </Nav.Link>
+              <Nav.Link
+                href="#minha-lista"
+                className="d-flex align-items-center"
+                onClick={(e) => {
+                  e.preventDefault();
+                  openMyListTab();
+                }}
+              >
+                Minha Lista <ViewListIcon className="ms-1" fontSize="small" />
+              </Nav.Link>
             </Nav>
             <div className="d-flex align-items-center gap-2 mt-2 mt-lg-0">
               <form onSubmit={handleSearchSubmit} className="d-flex">
@@ -430,7 +452,9 @@ function App() {
           />
         </>
       )}
-      {pageTitle !== PageTitles.POPULAR && pageTitle !== PageTitles.RANKING && (
+      {pageTitle !== PageTitles.POPULAR &&
+        pageTitle !== PageTitles.RANKING &&
+        pageTitle !== PageTitles.MY_LIST && (
         <Movies
           isLoadingMovies={isLoadingPopularMovies}
           movies={popularMovies}
@@ -441,6 +465,13 @@ function App() {
       )}
       {pageTitle === PageTitles.RANKING && (
         <RankingPage onSelectMovie={openDetails} />
+      )}
+      {pageTitle === PageTitles.MY_LIST && (
+        <MyListDashboard
+          onSelectMovie={(id) => {
+            if (id) openDetails(id);
+          }}
+        />
       )}
       <MovieDetailsModal
         show={showDetails}
@@ -455,7 +486,9 @@ function App() {
         onHide={() => setEditingFavorite(null)}
         onSave={saveFavoriteNotes}
       />
-      {pageTitle !== PageTitles.FAVORITES && pageTitle !== PageTitles.RANKING && (
+      {pageTitle !== PageTitles.FAVORITES &&
+        pageTitle !== PageTitles.RANKING &&
+        pageTitle !== PageTitles.MY_LIST && (
         <PaginationControls
           currentPage={moviesPage}
           totalPages={moviesTotalPages}

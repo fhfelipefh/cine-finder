@@ -14,6 +14,7 @@ import { getMovieDetails, getSimilarMovies } from "../api/api";
 import CommentsSection from "./CommentsSection";
 import CommunityRating from "./CommunityRating";
 import { BsInfoCircle } from "react-icons/bs";
+import MyListQuickActions from "./MyListQuickActions";
 
 const IMG_POSTER = "https://image.tmdb.org/t/p/w500";
 const IMG_SM = "https://image.tmdb.org/t/p/w185";
@@ -201,7 +202,7 @@ export default function MovieDetailsModal({
                   {meta.countries}
                 </div>
 
-                <div className="d-flex gap-2 flex-wrap mb-3">
+                <div className="d-flex gap-2 flex-wrap align-items-center mb-3">
                   {details.homepage && (
                     <Button
                       size="sm"
@@ -225,6 +226,12 @@ export default function MovieDetailsModal({
                     >
                       Ver no IMDb
                     </Button>
+                  )}
+                  {details?.imdb_id && (
+                    <MyListQuickActions
+                      imdbId={details.imdb_id}
+                      title={meta.title}
+                    />
                   )}
                 </div>
 

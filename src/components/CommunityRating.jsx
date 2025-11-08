@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState, Fragment } from "react";
 import PropTypes from "prop-types";
-import { Box, Rating, Chip, LinearProgress, Tooltip, IconButton } from "@mui/material";
+import {
+  Box,
+  Rating,
+  Chip,
+  LinearProgress,
+  Tooltip,
+  IconButton,
+  Button as MButton,
+} from "@mui/material";
 import { MdDelete } from "react-icons/md";
 import {
   getMovieStats,

@@ -202,13 +202,33 @@ function App() {
         .map((fav) => {
           const movie = fav?.movie;
           if (!movie) return null;
+          const resolvedTmdbId =
+            typeof movie.id === "number"
+              ? movie.id
+              : typeof movie.tmdbId === "number"
+              ? movie.tmdbId
+              : typeof fav.tmdbId === "number"
+              ? fav.tmdbId
+              : null;
+
           return {
             ...movie,
+            id: typeof movie.id === "number" ? movie.id : resolvedTmdbId,
+            tmdbId:
+              typeof movie.tmdbId === "number"
+                ? movie.tmdbId
+                : resolvedTmdbId ?? fav.tmdbId ?? null,
+            poster_path:
+              movie.poster_path ||
+              movie.posterUrl ||
+              movie.poster ||
+              movie.backdrop_path ||
+              null,
             __favoriteImdbId: fav.imdbId,
             __favoriteNotes: fav.notes,
           };
         })
-        .filter(Boolean);
+        .filter((movie) => movie && movie.id);
       setPopularMovies(mapped);
     } catch (e) {
       setPopularMovies([]);

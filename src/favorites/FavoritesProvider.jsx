@@ -11,30 +11,65 @@ import {
 import { FavoritesCtx } from "./FavoritesContext";
 import { useAuth } from "../auth/AuthContext";
 
+function normalizeTmdbId(candidate) {
+  if (candidate === undefined || candidate === null) return null;
+  const numeric = Number(candidate);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+}
+
 async function enrichFavorite(entry) {
   const imdbId = String(entry?.imdbId ?? "").trim();
   if (!imdbId) return null;
-  let movie = entry?.movie || null;
-  let tmdbId = entry?.tmdbId || movie?.id || null;
+  const rawMovie =
+    entry?.movie && typeof entry.movie === "object" ? entry.movie : null;
+  let movie = rawMovie;
+  let tmdbId =
+    normalizeTmdbId(entry?.tmdbId) ||
+    normalizeTmdbId(rawMovie?.tmdbId) ||
+    normalizeTmdbId(rawMovie?.movieId) ||
+    normalizeTmdbId(rawMovie?.id) ||
+    null;
 
   if (!tmdbId) {
     const found = await findMovieByImdbId(imdbId).catch(() => null);
-    tmdbId = found?.id || null;
+    tmdbId = normalizeTmdbId(found?.id);
     movie = movie || found || null;
   }
 
-  if (tmdbId && (!movie || !movie.overview)) {
+  if (!tmdbId) return null;
+
+  const needsDetails =
+    !movie ||
+    typeof movie !== "object" ||
+    typeof movie.id !== "number" ||
+    (!movie.poster_path && !movie.backdrop_path) ||
+    !movie.overview;
+
+  if (needsDetails) {
     movie = (await getMovieDetails(tmdbId).catch(() => movie)) || movie || null;
   }
 
-  if (!tmdbId) return null;
+  if (!movie) return null;
+
+  const normalizedMovie = {
+    ...movie,
+    id: typeof movie.id === "number" ? movie.id : tmdbId,
+    tmdbId: normalizeTmdbId(movie.tmdbId) || tmdbId,
+    poster_path:
+      movie.poster_path ||
+      movie.posterUrl ||
+      movie.poster ||
+      movie.backdrop_path ||
+      null,
+  };
+
   return {
     imdbId,
-    tmdbId,
+    tmdbId: normalizedMovie.tmdbId || tmdbId,
     notes: entry?.notes || "",
     createdAt: entry?.createdAt,
     updatedAt: entry?.updatedAt,
-    movie,
+    movie: normalizedMovie,
   };
 }
 

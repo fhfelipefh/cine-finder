@@ -245,7 +245,8 @@ export async function getNowPlayingMovies(page = 1) {
 
 export async function findMovieByImdbId(imdbId) {
   const clean = sanitizeImdbId(imdbId);
-  const { data } = await client.get(`/find/${encodeURIComponent(clean)}`, {
+  const normalized = clean.toLowerCase();
+  const { data } = await client.get(`/find/${encodeURIComponent(normalized)}`, {
     params: { external_source: "imdb_id", language: "pt-BR" },
   });
   const results = data?.movie_results || [];

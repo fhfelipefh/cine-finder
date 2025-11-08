@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import PropTypes from "prop-types";
-import { Modal, Button, Form, Alert, Tabs, Tab } from "react-bootstrap";
+import { Modal, Button, Form, Alert, Tabs, Tab, InputGroup } from "react-bootstrap";
+import Visibility from "@mui/icons-material/Visibility";
+import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { useAuth } from "./AuthContext";
 
 function AccountModal({ show, onHide }) {
@@ -14,6 +16,10 @@ function AccountModal({ show, onHide }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState({
+    current: false,
+    next: false,
+  });
 
   useEffect(() => {
     if (show) {
@@ -22,11 +28,16 @@ function AccountModal({ show, onHide }) {
         email: user?.email || "",
       });
       setPwdForm({ currentPassword: "", newPassword: "" });
+      setShowPassword({ current: false, next: false });
       setTab("profile");
       setError("");
       setSuccess("");
     }
   }, [show, user]);
+
+  function togglePasswordVisibility(field) {
+    setShowPassword((prev) => ({ ...prev, [field]: !prev[field] }));
+  }
 
   async function handleProfileSubmit(e) {
     e?.preventDefault();
@@ -120,33 +131,59 @@ function AccountModal({ show, onHide }) {
             <Form onSubmit={handlePasswordSubmit} className="mt-3">
               <Form.Group className="mb-3" controlId="pwdCurrent">
                 <Form.Label>Senha atual</Form.Label>
-                <Form.Control
-                  type="password"
-                  value={pwdForm.currentPassword}
-                  onChange={(e) =>
-                    setPwdForm((prev) => ({
-                      ...prev,
-                      currentPassword: e.target.value,
-                    }))
-                  }
-                  required
-                  autoComplete="current-password"
-                />
+                <InputGroup>
+                  <Form.Control
+                    type={showPassword.current ? "text" : "password"}
+                    value={pwdForm.currentPassword}
+                    onChange={(e) =>
+                      setPwdForm((prev) => ({
+                        ...prev,
+                        currentPassword: e.target.value,
+                      }))
+                    }
+                    required
+                    autoComplete="current-password"
+                  />
+                  <Button
+                    variant="outline-secondary"
+                    type="button"
+                    onClick={() => togglePasswordVisibility("current")}
+                    aria-pressed={showPassword.current}
+                    aria-label={
+                      showPassword.current ? "Ocultar senha atual" : "Mostrar senha atual"
+                    }
+                    className="d-flex align-items-center"
+                  >
+                    {showPassword.current ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                  </Button>
+                </InputGroup>
               </Form.Group>
               <Form.Group className="mb-3" controlId="pwdNew">
                 <Form.Label>Nova senha</Form.Label>
-                <Form.Control
-                  type="password"
-                  value={pwdForm.newPassword}
-                  onChange={(e) =>
-                    setPwdForm((prev) => ({
-                      ...prev,
-                      newPassword: e.target.value,
-                    }))
-                  }
-                  required
-                  autoComplete="new-password"
-                />
+                <InputGroup>
+                  <Form.Control
+                    type={showPassword.next ? "text" : "password"}
+                    value={pwdForm.newPassword}
+                    onChange={(e) =>
+                      setPwdForm((prev) => ({
+                        ...prev,
+                        newPassword: e.target.value,
+                      }))
+                    }
+                    required
+                    autoComplete="new-password"
+                  />
+                  <Button
+                    variant="outline-secondary"
+                    type="button"
+                    onClick={() => togglePasswordVisibility("next")}
+                    aria-pressed={showPassword.next}
+                    aria-label={showPassword.next ? "Ocultar nova senha" : "Mostrar nova senha"}
+                    className="d-flex align-items-center"
+                  >
+                    {showPassword.next ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                  </Button>
+                </InputGroup>
               </Form.Group>
               <Button type="submit" variant="primary" disabled={loading}>
                 Alterar senha

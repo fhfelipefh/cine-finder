@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import PropTypes from "prop-types";
-import { Modal, Button, Form, Alert, Tabs, Tab } from "react-bootstrap";
+import { Modal, Button, Form, Alert, Tabs, Tab, InputGroup } from "react-bootstrap";
+import Visibility from "@mui/icons-material/Visibility";
+import VisibilityOff from "@mui/icons-material/VisibilityOff";
 
 function AuthModal({ show, mode = "login", onHide, onLogin, onRegister }) {
   const [active, setActive] = useState(mode);
@@ -12,6 +14,10 @@ function AuthModal({ show, mode = "login", onHide, onLogin, onRegister }) {
   });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState({
+    login: false,
+    register: false,
+  });
 
   useEffect(() => {
     setActive(mode);
@@ -21,10 +27,15 @@ function AuthModal({ show, mode = "login", onHide, onLogin, onRegister }) {
     if (!show) {
       setLoginForm({ email: "", password: "" });
       setRegisterForm({ name: "", email: "", password: "" });
+      setShowPassword({ login: false, register: false });
       setError("");
       setSubmitting(false);
     }
   }, [show]);
+
+  function togglePasswordVisibility(field) {
+    setShowPassword((prev) => ({ ...prev, [field]: !prev[field] }));
+  }
 
   async function handleSubmit(e) {
     e?.preventDefault();
@@ -78,18 +89,30 @@ function AuthModal({ show, mode = "login", onHide, onLogin, onRegister }) {
             </Form.Group>
             <Form.Group className="mb-3" controlId="loginPassword">
               <Form.Label>Senha</Form.Label>
-              <Form.Control
-                type="password"
-                value={loginForm.password}
-                onChange={(e) =>
-                  setLoginForm((prev) => ({
-                    ...prev,
-                    password: e.target.value,
-                  }))
-                }
-                required
-                autoComplete="current-password"
-              />
+              <InputGroup>
+                <Form.Control
+                  type={showPassword.login ? "text" : "password"}
+                  value={loginForm.password}
+                  onChange={(e) =>
+                    setLoginForm((prev) => ({
+                      ...prev,
+                      password: e.target.value,
+                    }))
+                  }
+                  required
+                  autoComplete="current-password"
+                />
+                <Button
+                  variant="outline-secondary"
+                  type="button"
+                  onClick={() => togglePasswordVisibility("login")}
+                  aria-pressed={showPassword.login}
+                  aria-label={showPassword.login ? "Ocultar senha" : "Mostrar senha"}
+                  className="d-flex align-items-center"
+                >
+                  {showPassword.login ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                </Button>
+              </InputGroup>
             </Form.Group>
           </Form>
         ) : (
@@ -123,18 +146,30 @@ function AuthModal({ show, mode = "login", onHide, onLogin, onRegister }) {
             </Form.Group>
             <Form.Group className="mb-3" controlId="registerPassword">
               <Form.Label>Senha</Form.Label>
-              <Form.Control
-                type="password"
-                value={registerForm.password}
-                onChange={(e) =>
-                  setRegisterForm((prev) => ({
-                    ...prev,
-                    password: e.target.value,
-                  }))
-                }
-                required
-                autoComplete="new-password"
-              />
+              <InputGroup>
+                <Form.Control
+                  type={showPassword.register ? "text" : "password"}
+                  value={registerForm.password}
+                  onChange={(e) =>
+                    setRegisterForm((prev) => ({
+                      ...prev,
+                      password: e.target.value,
+                    }))
+                  }
+                  required
+                  autoComplete="new-password"
+                />
+                <Button
+                  variant="outline-secondary"
+                  type="button"
+                  onClick={() => togglePasswordVisibility("register")}
+                  aria-pressed={showPassword.register}
+                  aria-label={showPassword.register ? "Ocultar senha" : "Mostrar senha"}
+                  className="d-flex align-items-center"
+                >
+                  {showPassword.register ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                </Button>
+              </InputGroup>
             </Form.Group>
           </Form>
         )}

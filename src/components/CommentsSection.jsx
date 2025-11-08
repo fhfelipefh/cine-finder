@@ -55,6 +55,35 @@ function getAuthorName(item) {
   return a?.name || "";
 }
 
+function extractEntityId(source) {
+  if (!source) return "";
+  if (typeof source === "string" || typeof source === "number") {
+    return String(source).trim();
+  }
+  if (typeof source === "object") {
+    const nested =
+      source.id ||
+      source._id ||
+      source.userId ||
+      source.user ||
+      source.authorId ||
+      source.author ||
+      "";
+    return nested ? String(nested).trim() : "";
+  }
+  return "";
+}
+
+function getCommentAuthorId(item) {
+  if (!item) return "";
+  const chain = [item.userId, item.user, item.author];
+  for (const candidate of chain) {
+    const id = extractEntityId(candidate);
+    if (id) return id;
+  }
+  return "";
+}
+
 function normalizeComment(entry) {
   if (!entry) return null;
   const id =
@@ -224,15 +253,12 @@ export default function CommentsSection({ imdbId }) {
       setItems((prev) => prev.filter((it) => String(it.id || "") !== cleanId));
       setTotal((t) => Math.max(0, t - 1));
       setConfirmDel(null);
-  const successMessage = (response && response.message) || "Comentário removido.";
+      const successMessage = (response && response.message) || "Comentário removido.";
       setSuccessMsg(successMessage);
     } catch (e) {
       const msg = e?.message || "Erro ao deletar comentário";
       if (e?.status === 403) {
-        setError(
-          msg +
-            " A ação é permitida apenas do mesmo IP e até 10 minutos após a criação."
-        );
+        setError(msg + " Apenas o autor ou um administrador pode remover.");
       } else {
         setError(msg);
       }
@@ -280,19 +306,15 @@ export default function CommentsSection({ imdbId }) {
     listContent = (
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
         {items.map((it) => {
-          const commentUserId = String(
-            it.userId ||
-              it.user?._id ||
-              it.user?.id ||
-              it.author?._id ||
-              it.author?.id ||
-              ""
-          );
+          const authorId = getCommentAuthorId(it);
           const currentUserId = String(user?.id || user?._id || "");
-          const isOwner = commentUserId && currentUserId && commentUserId === currentUserId;
+          const isOwner = authorId && currentUserId && authorId === currentUserId;
           const isAdmin = user?.role === "admin";
           const canEdit = isAdmin || isOwner;
-          const canDelete = isAdmin;
+          const canDelete = isAdmin || isOwner;
+          const tooltipTitle = authorId
+            ? `ID do autor: ${authorId}`
+            : "ID do autor indisponível";
           return (
             <Box
               key={it.id}
@@ -306,9 +328,11 @@ export default function CommentsSection({ imdbId }) {
                 bgcolor: "background.paper",
               }}
             >
-              <Avatar sx={{ bgcolor: "primary.main" }}>
-                {initials(getAuthorName(it))}
-              </Avatar>
+              <Tooltip title={tooltipTitle} arrow placement="top">
+                <Avatar sx={{ bgcolor: "primary.main" }}>
+                  {initials(getAuthorName(it))}
+                </Avatar>
+              </Tooltip>
               <Box sx={{ flex: 1 }}>
                 <Box
                   sx={{
@@ -487,9 +511,8 @@ export default function CommentsSection({ imdbId }) {
           <Modal.Title>Remover comentário</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Tem certeza que deseja remover este comentário? Apenas administradores podem
-          executar esta ação.
-
+          Tem certeza que deseja remover este comentário? Somente o autor ou um
+          administrador pode executar esta ação.
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setConfirmDel(null)}>

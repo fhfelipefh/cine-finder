@@ -47,9 +47,33 @@ function humanDate(iso) {
 
 function getAuthorName(item) {
   if (!item) return "";
+  if (typeof item.authorName === "string" && item.authorName.trim()) {
+    return item.authorName.trim();
+  }
   const a = item.author;
   if (typeof a === "string") return a;
   return a?.name || "";
+}
+
+function normalizeComment(entry) {
+  if (!entry) return null;
+  const id =
+    entry.id ||
+    entry._id ||
+    entry.commentId ||
+    entry.comment_id ||
+    entry.commentID ||
+    null;
+  return {
+    ...entry,
+    id: id ? String(id) : null,
+    rating: Number(entry.rating ?? 0),
+    authorName:
+      entry.authorName ||
+      (typeof entry.author === "string"
+        ? entry.author
+        : entry.author?.name || ""),
+  };
 }
 
 export default function CommentsSection({ imdbId }) {
@@ -59,6 +83,7 @@ export default function CommentsSection({ imdbId }) {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
@@ -86,8 +111,12 @@ export default function CommentsSection({ imdbId }) {
         setError("");
         const res = await listComments(imdbId, page, pageSize);
         if (!active) return;
-        setItems(res.items || []);
-        setTotal(res.total || 0);
+        const normalized =
+          (res.items || [])
+            .map((entry) => normalizeComment(entry))
+            .filter(Boolean) || [];
+        setItems(normalized);
+        setTotal(res.total ?? normalized.length);
       } catch (e) {
         if (!active) return;
         setError(e?.message || "Erro ao carregar comentários");
@@ -112,7 +141,7 @@ export default function CommentsSection({ imdbId }) {
     setComment("");
   }
 
-    async function handleSubmit(e) {
+  async function handleSubmit(e) {
     e?.preventDefault?.();
     if (!imdbId) return;
     if (!comment.trim() || rating <= 0) {
@@ -126,14 +155,32 @@ export default function CommentsSection({ imdbId }) {
     try {
       setSubmitting(true);
       setError("");
+      setSuccessMsg("");
       if (editing) {
-        const updated = await updateComment(editing.id, {
+        const editingId = editing.id || editing._id;
+        if (!editingId) {
+          throw new Error("Comentário selecionado não possui ID.");
+        }
+        const cleanId = String(editingId);
+        const payload = {
           rating,
           comment: comment.trim(),
+        };
+        const response = await updateComment(cleanId, payload);
+        const fallbackUpdated = normalizeComment({
+          ...editing,
+          ...payload,
+          id: cleanId,
+          updatedAt: new Date().toISOString(),
         });
+        const updated = normalizeComment(response) || fallbackUpdated;
         setItems((prev) =>
-          prev.map((it) => (it.id === updated.id ? updated : it))
+          prev.map((it) =>
+            String(it.id || "") === cleanId ? updated || it : it
+          )
         );
+        const successMessage = (response && response.message) || "Comentário atualizado.";
+        setSuccessMsg(successMessage);
         setEditing(null);
       } else {
         const created = await createComment({
@@ -141,8 +188,12 @@ export default function CommentsSection({ imdbId }) {
           rating,
           comment: comment.trim(),
         });
-        setItems((prev) => [created, ...prev]);
-        setTotal((t) => t + 1);
+        const normalizedCreated = normalizeComment(created);
+        if (normalizedCreated) {
+          setItems((prev) => [normalizedCreated, ...prev]);
+          setTotal((t) => t + 1);
+        }
+        setSuccessMsg((created && created.message) || "Comentário publicado.");
       }
       resetForm();
     } catch (e) {
@@ -153,26 +204,34 @@ export default function CommentsSection({ imdbId }) {
     }
   }
 
-function onEdit(it) {
+  function onEdit(it) {
     setEditing(it);
-    setAuthor(getAuthorName(it) || "");
-    setRating(it.rating || 0);
+    setRating(Number(it.rating) || 0);
     setComment(it.comment || "");
   }
 
   async function onConfirmDelete() {
     if (!confirmDel) return;
+    const targetId = confirmDel.id || confirmDel._id;
+    if (!targetId) {
+      setError("Comentário selecionado não possui ID.");
+      setConfirmDel(null);
+      return;
+    }
+    const cleanId = String(targetId);
     try {
-      await deleteComment(confirmDel.id);
-      setItems((prev) => prev.filter((it) => it.id !== confirmDel.id));
+      const response = await deleteComment(cleanId);
+      setItems((prev) => prev.filter((it) => String(it.id || "") !== cleanId));
       setTotal((t) => Math.max(0, t - 1));
       setConfirmDel(null);
+  const successMessage = (response && response.message) || "Comentário removido.";
+      setSuccessMsg(successMessage);
     } catch (e) {
       const msg = e?.message || "Erro ao deletar comentário";
       if (e?.status === 403) {
         setError(
           msg +
-            " — ação permitida apenas do mesmo IP e até 10 minutos após a criação."
+            " A ação é permitida apenas do mesmo IP e até 10 minutos após a criação."
         );
       } else {
         setError(msg);
@@ -405,6 +464,17 @@ function onEdit(it) {
       >
         <Alert severity="error" variant="filled" sx={{ width: "100%" }}>
           {error}
+        </Alert>
+      </Snackbar>
+
+      <Snackbar
+        open={Boolean(successMsg)}
+        autoHideDuration={4000}
+        onClose={() => setSuccessMsg("")}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert severity="success" variant="filled" sx={{ width: "100%" }}>
+          {successMsg}
         </Alert>
       </Snackbar>
 

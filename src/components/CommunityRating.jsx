@@ -23,6 +23,8 @@ function formatAvg(n) {
   return Number(n).toFixed(1);
 }
 
+const STARS_MAX = 10;
+
 export default function CommunityRating({ imdbId }) {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -33,6 +35,7 @@ export default function CommunityRating({ imdbId }) {
     () => myVotes.find((v) => v.imdbId === imdbId) || null,
     [myVotes, imdbId]
   );
+  const userRating = Number(myVote?.rating) || 0;
 
   async function refresh() {
     if (!imdbId || !isAuthenticated) {
@@ -147,8 +150,15 @@ export default function CommunityRating({ imdbId }) {
 
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
         <span>Minha nota:</span>
-        <Rating value={myVote?.rating || 0} onChange={onChangeVote} disabled={sending || loading} />
-        {myVote && <Chip size="small" label={`(${myVote.rating})`} />}
+        <Rating
+          value={userRating}
+          onChange={onChangeVote}
+          disabled={sending || loading}
+          max={STARS_MAX}
+          precision={1}
+          getLabelText={(value) => `${value} estrela${value === 1 ? "" : "s"}`}
+        />
+        {myVote && <Chip size="small" label={`(${userRating})`} />}
       </Box>
 
       {loading && <LinearProgress />}

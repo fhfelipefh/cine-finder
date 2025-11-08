@@ -330,8 +330,7 @@ export async function updateComment(id, payload) {
 }
 
 export async function deleteComment(id) {
-  await request(`/comments/${String(id).trim()}`, { method: "DELETE" });
-  return true;
+  return request(`/comments/${String(id).trim()}`, { method: "DELETE" });
 }
 
 export async function getMyVotes() {

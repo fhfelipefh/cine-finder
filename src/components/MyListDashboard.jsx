@@ -6,6 +6,7 @@ import {
   upsertMyListEntry,
   updateMyListEntry,
   deleteMyListEntry,
+  findMovieByImdbId,
 } from "../api/api";
 import { useAuth } from "../auth/AuthContext";
 import {
@@ -30,6 +31,11 @@ import {
   TextField,
   Tooltip,
   Typography,
+  Checkbox,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import AddCircleIcon from "@mui/icons-material/AddCircle";
@@ -62,6 +68,48 @@ const priorityOptions = [
   { value: "medium", label: "Média" },
   { value: "low", label: "Baixa" },
 ];
+
+const priorityLabels = {
+  high: "Alta",
+  medium: "Média",
+  low: "Baixa",
+};
+
+const TMDB_POSTER_BASE = "https://image.tmdb.org/t/p/w300";
+
+function formatPosterUrl(path) {
+  if (!path) return null;
+  if (typeof path !== "string") return path;
+  if (path.startsWith("http")) return path;
+  if (path.startsWith("/")) return `${TMDB_POSTER_BASE}${path}`;
+  return path;
+}
+
+function deriveEntryMedia(entry) {
+  const imdb = String(entry?.imdbId || "").toUpperCase();
+  return {
+    imdb,
+    title:
+      entry?.title ||
+      entry?.movie?.title ||
+      entry?.movie?.name ||
+      imdb ||
+      "Título desconhecido",
+    posterUrl: formatPosterUrl(
+      entry?.movie?.posterUrl ||
+        entry?.movie?.poster_path ||
+        entry?.posterUrl ||
+        entry?.poster_path
+    ),
+    tmdbId:
+      entry?.movie?.tmdbId ||
+      entry?.movie?.tmdbID ||
+      (typeof entry?.movie?.id === "number" ? entry.movie.id : null) ||
+      entry?.tmdbId ||
+      entry?.tmdbID ||
+      null,
+  };
+}
 
 const sortOptions = [
   { value: "updatedAt", label: "Atualizados recentemente" },
@@ -112,12 +160,23 @@ export default function MyListDashboard({ onSelectMovie }) {
   const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [updatingId, setUpdatingId] = useState(null);
+  const [resolvingDetailsId, setResolvingDetailsId] = useState(null);
   const [newEntry, setNewEntry] = useState({
     imdbId: "",
     status: "watching",
     priority: "medium",
     score: "",
   });
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const hasSelection = selectedIds.length > 0;
+  const [deleteDialog, setDeleteDialog] = useState({
+    open: false,
+    entryId: null,
+    label: "",
+  });
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+  const [detailsMap, setDetailsMap] = useState({});
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -143,6 +202,48 @@ export default function MyListDashboard({ onSelectMovie }) {
     filters.pageSize,
   ]);
 
+  useEffect(() => {
+    if (!entries.length) return;
+    const pending = [];
+    const seen = new Set();
+    entries.forEach((entry) => {
+      const imdb = String(entry.imdbId || "").toUpperCase();
+      if (!imdb || seen.has(imdb) || detailsMap[imdb]) return;
+      seen.add(imdb);
+      pending.push({ imdb, entry });
+    });
+    if (!pending.length) return;
+    let cancelled = false;
+    (async () => {
+      const updates = {};
+      for (const { imdb, entry } of pending) {
+        let resolved = deriveEntryMedia(entry);
+        try {
+          const remote = await findMovieByImdbId(imdb);
+          if (remote) {
+            resolved = {
+              ...resolved,
+              title: remote.title || resolved.title,
+              posterUrl:
+                formatPosterUrl(remote.poster_path) || resolved.posterUrl,
+              tmdbId: remote.tmdbId || resolved.tmdbId,
+              year: remote.release_date || resolved.year,
+            };
+          }
+        } catch {
+          /* ignore TMDB failures */
+        }
+        updates[imdb] = resolved;
+      }
+      if (!cancelled) {
+        setDetailsMap((prev) => ({ ...prev, ...updates }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [entries, detailsMap]);
+
   async function loadEntries() {
     setLoadingEntries(true);
     setError("");
@@ -157,6 +258,7 @@ export default function MyListDashboard({ onSelectMovie }) {
         pageSize: filters.pageSize,
       });
       setEntries(data.items || []);
+      setSelectedIds([]);
       const totalPages = Math.max(
         1,
         Math.ceil((data.total || data.items?.length || 1) / data.pageSize)
@@ -164,6 +266,7 @@ export default function MyListDashboard({ onSelectMovie }) {
       setPageInfo({ page: data.page || 1, totalPages });
     } catch (e) {
       setEntries([]);
+      setSelectedIds([]);
       setError(e?.message || "Erro ao carregar sua lista.");
     } finally {
       setLoadingEntries(false);
@@ -212,7 +315,7 @@ export default function MyListDashboard({ onSelectMovie }) {
       const updated = await updateMyListEntry(entryId, payload);
       setEntries((prev) =>
         prev.map((item) =>
-          String(item.id) === String(entryId)
+          String(item.id || item._id || "") === String(entryId)
             ? { ...item, ...updated, ...payload }
             : item
         )
@@ -220,11 +323,12 @@ export default function MyListDashboard({ onSelectMovie }) {
       setSuccess(message || "Entrada atualizada.");
       loadStats();
     } catch (e) {
-      setError(e?.message || "N�o foi poss�vel atualizar a entrada.");
+      setError(e?.message || "Não foi possível atualizar a entrada.");
     } finally {
       setUpdatingId(null);
     }
   }
+
 
   async function handleCreateEntry(e) {
     e.preventDefault();
@@ -265,15 +369,106 @@ export default function MyListDashboard({ onSelectMovie }) {
     setError("");
     try {
       await deleteMyListEntry(entryId);
-      setEntries((prev) => prev.filter((item) => String(item.id) !== String(entryId)));
+      setEntries((prev) =>
+        prev.filter(
+          (item) => String(item.id || item._id || "") !== String(entryId)
+        )
+      );
+      setSelectedIds((prev) => prev.filter((id) => id !== String(entryId)));
       setSuccess("Entrada removida.");
       loadStats();
     } catch (e) {
-      setError(e?.message || "N�o foi poss�vel remover a entrada.");
+      setError(e?.message || "Não foi possível remover a entrada.");
     } finally {
       setUpdatingId(null);
+      closeDeleteDialog();
     }
   }
+
+  function toggleSelection(entryId) {
+    const clean = String(entryId || "");
+    if (!clean) return;
+    setSelectedIds((prev) =>
+      prev.includes(clean)
+        ? prev.filter((id) => id !== clean)
+        : [...prev, clean]
+    );
+  }
+
+  function openDeleteDialog(entryId, label) {
+    if (!entryId) return;
+    setDeleteDialog({
+      open: true,
+      entryId,
+      label: label || "este filme",
+    });
+  }
+
+  function closeDeleteDialog() {
+    setDeleteDialog({ open: false, entryId: null, label: "" });
+  }
+
+  async function executeBulkDelete() {
+    if (!hasSelection) return;
+    setBulkDeleting(true);
+    setError("");
+    try {
+      for (const id of selectedIds) {
+        await deleteMyListEntry(id);
+      }
+      setEntries((prev) =>
+        prev.filter(
+          (item) => !selectedIds.includes(String(item.id || item._id || ""))
+        )
+      );
+      setSelectedIds([]);
+      setSuccess("Itens removidos da sua lista.");
+      loadStats();
+    } catch (e) {
+      setError(e?.message || "Não foi possível remover os itens selecionados.");
+    } finally {
+      setBulkDeleting(false);
+      setBulkDialogOpen(false);
+    }
+  }
+
+  async function handleOpenDetails(entry, cachedTmdbId) {
+    if (!entry || !onSelectMovie) return;
+    const detailKey = String(entry.id || entry._id || entry.imdbId || "");
+    const imdbKey = String(entry.imdbId || "").toUpperCase();
+    setResolvingDetailsId(detailKey);
+    try {
+      let tmdbId = cachedTmdbId;
+      if (!tmdbId) {
+        const cached = detailsMap[imdbKey];
+        tmdbId = cached?.tmdbId;
+      }
+      if (!tmdbId && entry.imdbId) {
+        const fromTmdb = await findMovieByImdbId(entry.imdbId).catch(() => null);
+        if (fromTmdb) {
+          tmdbId = fromTmdb.tmdbId;
+          setDetailsMap((prev) => ({
+            ...prev,
+            [imdbKey]: {
+              ...(prev[imdbKey] || deriveEntryMedia(entry)),
+              title: fromTmdb.title,
+              posterUrl: formatPosterUrl(fromTmdb.poster_path),
+              tmdbId: fromTmdb.tmdbId,
+              year: fromTmdb.release_date,
+            },
+          }));
+        }
+      }
+      if (!tmdbId) {
+        setError("Não foi possível encontrar detalhes deste filme.");
+        return;
+      }
+      onSelectMovie(tmdbId);
+    } finally {
+      setResolvingDetailsId(null);
+    }
+  }
+
 
   const statusSummary = useMemo(() => {
     const counts = stats?.counts || stats?.statusCounts || {};
@@ -345,22 +540,24 @@ export default function MyListDashboard({ onSelectMovie }) {
       <Stack
         direction={{ xs: "column", md: "row" }}
         alignItems={{ xs: "flex-start", md: "center" }}
-        justifyContent="space-between"
+        justifyContent={{ xs: "flex-start", md: "flex-end" }}
         spacing={2}
-        sx={{ mb: 3 }}
+        sx={{ mb: 2, flexWrap: "wrap" }}
       >
-        <Box>
-          <Typography variant="h4" fontWeight={600}>
-            Minha Lista
-          </Typography>
-          <Typography color="text.secondary">
-            Controle completo de status, notas e prioridades dos seus filmes.
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={1}>
+        <StatusSummaryCompact
+          summary={statusSummary}
+          loading={loadingStats}
+        />
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+          {hasSelection && (
+            <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
+              Selecionados: {selectedIds.length}
+            </Typography>
+          )}
           <Button
             startIcon={<RefreshIcon />}
             variant="outlined"
+            size="small"
             onClick={() => {
               loadEntries();
               loadStats();
@@ -368,10 +565,19 @@ export default function MyListDashboard({ onSelectMovie }) {
           >
             Atualizar
           </Button>
+          <Button
+            variant="contained"
+            color="error"
+            size="small"
+            disabled={!hasSelection || bulkDeleting}
+            onClick={() => setBulkDialogOpen(true)}
+          >
+            {bulkDeleting ? "Removendo..." : "Remover selecionados"}
+          </Button>
         </Stack>
       </Stack>
 
-      <Grid container spacing={2} sx={{ mb: 3 }}>
+      <Grid container spacing={1.5} sx={{ mb: 2 }}>
         <Grid item xs={12} md={3}>
           <StatCard
             title="Total de títulos"
@@ -407,46 +613,24 @@ export default function MyListDashboard({ onSelectMovie }) {
         </Grid>
       </Grid>
 
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-            Status gerais
-          </Typography>
-          <Stack
-            direction="row"
-            flexWrap="wrap"
-            spacing={1}
-            rowGap={1}
-            alignItems="center"
-          >
-            {statusSummary.map(({ label, value, icon }) => {
-              const StatusIcon = icon;
-              return (
-                <Chip
-                  key={label}
-                  label={`${label}: ${value}`}
-                  icon={
-                    StatusIcon ? <StatusIcon fontSize="small" /> : undefined
-                  }
-                  color="default"
-                  sx={{ textTransform: "capitalize" }}
-                />
-              );
-            })}
-          </Stack>
-        </CardContent>
-      </Card>
-
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
+      <Card
+        sx={{
+          mb: 2,
+          borderRadius: 2,
+          border: "1px solid",
+          borderColor: "divider",
+          boxShadow: "none",
+        }}
+      >
+        <CardContent sx={{ py: 2 }}>
           <Stack
             direction={{ xs: "column", lg: "row" }}
-            spacing={2}
+            spacing={1.5}
             justifyContent="space-between"
           >
             <Stack
               direction={{ xs: "column", md: "row" }}
-              spacing={2}
+              spacing={1.5}
               flexWrap="wrap"
             >
               <ToggleStatusGroup
@@ -495,6 +679,7 @@ export default function MyListDashboard({ onSelectMovie }) {
             <Stack direction="row" spacing={1}>
               <Button
                 variant="text"
+                size="small"
                 onClick={() => setFilters(defaultFilters)}
               >
                 Limpar
@@ -504,8 +689,16 @@ export default function MyListDashboard({ onSelectMovie }) {
         </CardContent>
       </Card>
 
-      <Card sx={{ mb: 4 }}>
-        <CardContent component="form" onSubmit={handleCreateEntry}>
+      <Card
+        sx={{
+          mb: 3,
+          borderRadius: 2,
+          border: "1px solid",
+          borderColor: "divider",
+          boxShadow: "none",
+        }}
+      >
+        <CardContent component="form" onSubmit={handleCreateEntry} sx={{ py: 2 }}>
           <Stack
             direction={{ xs: "column", md: "row" }}
             spacing={2}
@@ -520,7 +713,7 @@ export default function MyListDashboard({ onSelectMovie }) {
               required
               InputProps={{ sx: { textTransform: "uppercase" } }}
             />
-            <FormControl sx={{ minWidth: 160 }}>
+            <FormControl sx={{ minWidth: 160 }} size="small">
               <InputLabel>Status</InputLabel>
               <Select
                 label="Status"
@@ -538,7 +731,7 @@ export default function MyListDashboard({ onSelectMovie }) {
                   ))}
               </Select>
             </FormControl>
-            <FormControl sx={{ minWidth: 140 }}>
+            <FormControl sx={{ minWidth: 140 }} size="small">
               <InputLabel>Prioridade</InputLabel>
               <Select
                 label="Prioridade"
@@ -603,38 +796,57 @@ export default function MyListDashboard({ onSelectMovie }) {
           </Card>
         ) : (
           <Grid container spacing={2}>
-            {entries.map((entry) => (
-              <Grid item xs={12} sm={6} xl={4} key={entry.id || entry._id}>
-                <EntryCard
-                  entry={entry}
-                  onStatusChange={(value) =>
-                    handleQuickUpdate(entry.id || entry._id, { status: value })
-                  }
-                  onPriorityChange={(value) =>
-                    handleQuickUpdate(entry.id || entry._id, {
-                      priority: value,
-                    })
-                  }
-                  onScoreChange={(value) =>
-                    handleQuickUpdate(
-                      entry.id || entry._id,
-                      { score: value },
-                      "Nota atualizada."
-                    )
-                  }
-                  onDelete={() => handleDeleteEntry(entry.id || entry._id)}
-                  onOpenDetails={() =>
-                    onSelectMovie?.(
-                      entry.movie?.tmdbId ||
-                        entry.movie?.id ||
-                        entry.tmdbId ||
-                        null
-                    )
-                  }
-                  loading={updatingId === (entry.id || entry._id)}
-                />
-              </Grid>
-            ))}
+            {entries.map((entry) => {
+              const entryKey = entry.id || entry._id || null;
+              const selectionKey = entryKey ? String(entryKey) : "";
+              const imdbKey = String(entry.imdbId || "").toUpperCase();
+              const detailInfo =
+                detailsMap[imdbKey] || deriveEntryMedia(entry);
+              const detailsKey = selectionKey || imdbKey || String(entry.imdbId || "");
+              const isSelected = selectionKey
+                ? selectedIds.includes(selectionKey)
+                : false;
+              return (
+                <Grid item xs={12} sm={6} xl={4} key={detailsKey || entry.imdbId}>
+                  <EntryCard
+                    entry={entry}
+                    selected={isSelected}
+                    onToggleSelect={
+                      selectionKey ? () => toggleSelection(selectionKey) : undefined
+                    }
+                    displayTitle={detailInfo.title}
+                    displayPoster={detailInfo.posterUrl}
+                    displayImdb={imdbKey || entry.imdbId}
+                    onStatusChange={(value) =>
+                      handleQuickUpdate(entryKey, { status: value })
+                    }
+                    onPriorityChange={(value) =>
+                      handleQuickUpdate(entryKey, {
+                        priority: value,
+                      })
+                    }
+                    onScoreChange={(value) =>
+                      handleQuickUpdate(
+                        entryKey,
+                        { score: value },
+                        "Nota atualizada."
+                      )
+                    }
+                    onDeleteRequest={() =>
+                      selectionKey &&
+                      openDeleteDialog(selectionKey, detailInfo.title)
+                    }
+                    onOpenDetails={() =>
+                      handleOpenDetails(entry, detailInfo.tmdbId)
+                    }
+                    loading={Boolean(entryKey && updatingId === entryKey)}
+                    detailsLoading={Boolean(
+                      detailsKey && resolvingDetailsId === detailsKey
+                    )}
+                  />
+                </Grid>
+              );
+            })}
           </Grid>
         )}
       </Box>
@@ -671,6 +883,66 @@ export default function MyListDashboard({ onSelectMovie }) {
           {success}
         </Alert>
       </Snackbar>
+
+      <Dialog open={deleteDialog.open} onClose={closeDeleteDialog}>
+        <DialogTitle>Remover da Minha Lista</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Tem certeza que deseja remover{" "}
+            <strong>{deleteDialog.label || "este filme"}</strong>?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDeleteDialog} size="small">
+            Cancelar
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            size="small"
+            disabled={
+              Boolean(deleteDialog.entryId) &&
+              updatingId === deleteDialog.entryId
+            }
+            onClick={() =>
+              deleteDialog.entryId && handleDeleteEntry(deleteDialog.entryId)
+            }
+          >
+            Remover
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={bulkDialogOpen}
+        onClose={() => (!bulkDeleting ? setBulkDialogOpen(false) : null)}
+      >
+        <DialogTitle>Remover selecionados</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Remover {selectedIds.length} item(s) da sua lista? Esta ação não
+            pode ser desfeita.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setBulkDialogOpen(false)}
+            size="small"
+            disabled={bulkDeleting}
+          >
+            Cancelar
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            size="small"
+            disabled={bulkDeleting}
+            onClick={executeBulkDelete}
+          >
+            {bulkDeleting ? "Removendo..." : "Remover"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
@@ -679,12 +951,12 @@ function StatCard({ title, value, helper, icon, loading }) {
   const IconComponent = icon;
   return (
     <Card sx={{ height: "100%" }}>
-      <CardContent>
+      <CardContent sx={{ py: 2 }}>
         <Stack direction="row" spacing={2} alignItems="center">
           <Box
             sx={{
-              width: 48,
-              height: 48,
+              width: 40,
+              height: 40,
               borderRadius: "50%",
               bgcolor: "primary.light",
               color: "primary.contrastText",
@@ -726,6 +998,45 @@ StatCard.propTypes = {
   loading: PropTypes.bool,
 };
 
+function StatusSummaryCompact({ summary, loading }) {
+  if (loading) {
+    return (
+      <Stack direction="row" spacing={1} alignItems="center">
+        <CircularProgress size={16} />
+      </Stack>
+    );
+  }
+  return (
+    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+      {(summary || []).map(({ label, value, icon: IconComp }) => (
+        <Tooltip key={label} title={`${label}: ${value}`}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 0.5,
+              px: 1,
+              py: 0.5,
+              borderRadius: 2,
+              bgcolor: "grey.100",
+            }}
+          >
+            {IconComp ? <IconComp fontSize="small" /> : null}
+            <Typography variant="caption" fontWeight={600}>
+              {value}
+            </Typography>
+          </Box>
+        </Tooltip>
+      ))}
+    </Stack>
+  );
+}
+
+StatusSummaryCompact.propTypes = {
+  summary: PropTypes.arrayOf(PropTypes.object).isRequired,
+  loading: PropTypes.bool,
+};
+
 function ToggleStatusGroup({ value, onChange }) {
   return (
     <Stack direction="row" spacing={1} flexWrap="wrap">
@@ -755,28 +1066,67 @@ ToggleStatusGroup.propTypes = {
 
 function EntryCard({
   entry,
+  displayTitle,
+  displayPoster,
+  displayImdb,
   onStatusChange,
   onPriorityChange,
   onScoreChange,
-  onDelete,
+  onDeleteRequest,
   onOpenDetails,
+  onToggleSelect,
+  selected,
   loading,
+  detailsLoading,
 }) {
   const status = entry.status || "plan-to-watch";
   const priority = entry.priority || "medium";
   const score = entry.score ?? 0;
-  const movieTitle = entry.title || entry.movie?.title || entry.movie?.name;
-  const poster =
+  const movieTitle =
+    displayTitle ||
+    entry.title ||
+    entry.movie?.title ||
+    entry.movie?.name ||
+    entry.imdbId;
+  const imdbLabel =
+    displayImdb ||
+    entry.imdbId ||
+    entry.movie?.imdbId ||
+    entry.movie?.imdbID ||
+    "";
+  const rawPoster =
     entry.movie?.posterUrl ||
     entry.movie?.poster_path ||
     entry.movie?.poster ||
+    entry.movie?.posterURL ||
+    entry.movie?.posterPath ||
     entry.posterUrl ||
     entry.poster_path ||
+    entry.poster ||
+    entry.posterPath ||
+    entry.image ||
+    entry.movie?.image ||
     null;
+  const poster = displayPoster || formatPosterUrl(rawPoster);
+  const priorityLabel = priorityLabels[priority] || "Indefinida";
 
   return (
-    <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+    <Card
+      sx={{
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        position: "relative",
+      }}
+    >
       <CardContent sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        <Checkbox
+          size="small"
+          checked={selected}
+          onChange={onToggleSelect}
+          disabled={!onToggleSelect}
+          sx={{ position: "absolute", top: 8, right: 8 }}
+        />
         <Stack direction="row" spacing={2}>
           <Box
             sx={{
@@ -813,6 +1163,11 @@ function EntryCard({
             <Typography variant="h6" noWrap title={movieTitle}>
               {movieTitle || "Título desconhecido"}
             </Typography>
+            {imdbLabel && (
+              <Typography variant="body2" color="text.secondary" noWrap>
+                {imdbLabel}
+              </Typography>
+            )}
             <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
               <Chip
                 size="small"
@@ -821,7 +1176,7 @@ function EntryCard({
               />
               <Chip
                 size="small"
-                label={`Prioridade: ${priority}`}
+                label={`Prioridade: ${priorityLabel}`}
                 color={priorityColors[priority] || "default"}
               />
             </Stack>
@@ -897,16 +1252,20 @@ function EntryCard({
                 size="small"
                 startIcon={<OpenInNewIcon />}
                 onClick={onOpenDetails}
-                disabled={!onOpenDetails}
+                disabled={detailsLoading}
               >
-                Detalhes
+                {detailsLoading ? (
+                  <CircularProgress size={14} />
+                ) : (
+                  "Detalhes"
+                )}
               </Button>
             </span>
           </Tooltip>
           <IconButton
             color="error"
-            onClick={onDelete}
-            disabled={loading}
+            onClick={onDeleteRequest}
+            disabled={loading || !onDeleteRequest}
             aria-label="Remover da lista"
           >
             <DeleteOutlineIcon />
@@ -919,12 +1278,18 @@ function EntryCard({
 
 EntryCard.propTypes = {
   entry: PropTypes.object.isRequired,
+  displayTitle: PropTypes.string,
+  displayPoster: PropTypes.string,
+  displayImdb: PropTypes.string,
   onStatusChange: PropTypes.func.isRequired,
   onPriorityChange: PropTypes.func.isRequired,
   onScoreChange: PropTypes.func.isRequired,
-  onDelete: PropTypes.func.isRequired,
+  onDeleteRequest: PropTypes.func,
   onOpenDetails: PropTypes.func,
+  onToggleSelect: PropTypes.func,
+  selected: PropTypes.bool,
   loading: PropTypes.bool,
+  detailsLoading: PropTypes.bool,
 };
 
 MyListDashboard.propTypes = {

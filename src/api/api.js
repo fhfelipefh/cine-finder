@@ -249,8 +249,19 @@ export async function findMovieByImdbId(imdbId) {
   const { data } = await client.get(`/find/${encodeURIComponent(normalized)}`, {
     params: { external_source: "imdb_id", language: "pt-BR" },
   });
-  const results = data?.movie_results || [];
-  return results[0] || null;
+  const movie =
+    data?.movie_results?.[0] ||
+    data?.tv_results?.[0] ||
+    data?.person_results?.[0] ||
+    null;
+  if (!movie) return null;
+  return {
+    ...movie,
+    tmdbId: movie.id,
+    title: movie.title || movie.name || clean,
+    poster_path: movie.poster_path || movie.profile_path || "",
+    release_date: movie.release_date || movie.first_air_date || "",
+  };
 }
 
 export async function registerUser(payload) {

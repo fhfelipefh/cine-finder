@@ -8,6 +8,14 @@ import {
   upsertMyListEntry,
   deleteMyListEntry,
 } from "../api/api";
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Typography,
+} from "@mui/material";
+import MuiButton from "@mui/material/Button";
 
 const statusOptions = [
   { value: "watching", label: "Assistindo" },
@@ -38,6 +46,7 @@ export default function MyListQuickActions({ imdbId, title }) {
   const [form, setForm] = useState(defaultForm);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (!imdbId || !isAuthenticated) {
@@ -119,9 +128,17 @@ export default function MyListQuickActions({ imdbId, title }) {
     }
   }
 
-  async function handleDelete() {
+  function requestDelete() {
+    if (!entry?.id && !entry?._id) return;
+    setConfirmOpen(true);
+  }
+
+  async function handleConfirmDelete() {
     const entryId = entry?.id || entry?._id;
-    if (!entryId) return;
+    if (!entryId) {
+      setConfirmOpen(false);
+      return;
+    }
     setSaving(true);
     setError("");
     setSuccess("");
@@ -134,150 +151,178 @@ export default function MyListQuickActions({ imdbId, title }) {
       setError(e?.message || "Não foi possível remover.");
     } finally {
       setSaving(false);
+      setConfirmOpen(false);
     }
   }
 
   const disabled = !isAuthenticated || saving;
 
   return (
-    <Dropdown autoClose="outside">
-      <Dropdown.Toggle variant="outline-primary" size="sm">
-        <BsListCheck className="me-1" />
-        Minha Lista
-        {entry && (
-          <Badge bg="success" className="ms-2">
-            {statusLabel}
-          </Badge>
-        )}
-        {entry && (
-          <Badge bg="info" className="ms-2">
-            {priorityLabel}
-          </Badge>
-        )}
-      </Dropdown.Toggle>
-      <Dropdown.Menu className="p-3" align="end" style={{ minWidth: 260 }}>
-        {!isAuthenticated ? (
-          <div className="text-center">
-            <p className="mb-2">
-              Entre para atualizar status e prioridade deste filme.
-            </p>
-            <Button size="sm" onClick={() => openAuthModal?.("login")}>
-              Fazer login
-            </Button>
-          </div>
-        ) : loading ? (
-          <div className="text-center py-3">
-            <Spinner animation="border" size="sm" />
-          </div>
-        ) : (
-          <Form onSubmit={handleSubmit}>
-            <Stack gap={2}>
-              {title && (
-                <div>
-                  <small className="text-muted">Filme selecionado</small>
-                  <div className="fw-semibold">{title}</div>
-                </div>
-              )}
-              <Form.Group>
-                <Form.Label>Status</Form.Label>
-                <Form.Select
-                  size="sm"
-                  value={form.status}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, status: e.target.value }))
-                  }
-                  disabled={disabled}
-                >
-                  {statusOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </Form.Select>
-              </Form.Group>
-              <Form.Group>
-                <Form.Label>Prioridade</Form.Label>
-                <Form.Select
-                  size="sm"
-                  value={form.priority}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, priority: e.target.value }))
-                  }
-                  disabled={disabled}
-                >
-                  {priorityOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </Form.Select>
-              </Form.Group>
-              <Form.Group>
-                <Form.Label>Nota</Form.Label>
-                <Form.Control
-                  type="number"
-                  size="sm"
-                  min="0"
-                  max="10"
-                  step="0.5"
-                  value={form.score}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, score: e.target.value }))
-                  }
-                  disabled={disabled}
-                />
-              </Form.Group>
-              {error && (
-                <div className="text-danger small" role="alert">
-                  {error}
-                </div>
-              )}
-              {success && (
-                <div className="text-success small">{success}</div>
-              )}
-              <Stack direction="horizontal" gap={2}>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="sm"
-                  disabled={disabled}
-                >
-                  {saving ? (
-                    <>
-                      <Spinner animation="border" size="sm" className="me-2" />
-                      Salvando...
-                    </>
-                  ) : (
-                    "Aplicar"
-                  )}
-                </Button>
-                <Button
-                  variant="outline-secondary"
-                  size="sm"
-                  onClick={() => {
-                    setEntry(null);
-                    setForm(defaultForm);
-                    setSuccess("");
-                    setError("");
-                  }}
-                  disabled={saving}
-                >
-                  Limpar
-                </Button>
-                <Button
-                  variant="outline-danger"
-                  size="sm"
-                  onClick={handleDelete}
-                  disabled={saving || !entry?.id}
-                >
-                  Remover
-                </Button>
+    <>
+      <Dropdown autoClose="outside">
+        <Dropdown.Toggle variant="outline-primary" size="sm">
+          <BsListCheck className="me-1" />
+          Minha Lista
+          {entry && (
+            <Badge bg="success" className="ms-2">
+              {statusLabel}
+            </Badge>
+          )}
+          {entry && (
+            <Badge bg="info" className="ms-2">
+              {priorityLabel}
+            </Badge>
+          )}
+        </Dropdown.Toggle>
+        <Dropdown.Menu className="p-3" align="end" style={{ minWidth: 260 }}>
+          {!isAuthenticated ? (
+            <div className="text-center">
+              <p className="mb-2">
+                Entre para atualizar status e prioridade deste filme.
+              </p>
+              <Button size="sm" onClick={() => openAuthModal?.("login")}>
+                Fazer login
+              </Button>
+            </div>
+          ) : loading ? (
+            <div className="text-center py-3">
+              <Spinner animation="border" size="sm" />
+            </div>
+          ) : (
+            <Form onSubmit={handleSubmit}>
+              <Stack gap={2}>
+                {title && (
+                  <div>
+                    <small className="text-muted">Filme selecionado</small>
+                    <div className="fw-semibold">{title}</div>
+                  </div>
+                )}
+                <Form.Group>
+                  <Form.Label>Status</Form.Label>
+                  <Form.Select
+                    size="sm"
+                    value={form.status}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, status: e.target.value }))
+                    }
+                    disabled={disabled}
+                  >
+                    {statusOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+                <Form.Group>
+                  <Form.Label>Prioridade</Form.Label>
+                  <Form.Select
+                    size="sm"
+                    value={form.priority}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, priority: e.target.value }))
+                    }
+                    disabled={disabled}
+                  >
+                    {priorityOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+                <Form.Group>
+                  <Form.Label>Nota</Form.Label>
+                  <Form.Control
+                    type="number"
+                    size="sm"
+                    min="0"
+                    max="10"
+                    step="0.5"
+                    value={form.score}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, score: e.target.value }))
+                    }
+                    disabled={disabled}
+                  />
+                </Form.Group>
+                {error && (
+                  <div className="text-danger small" role="alert">
+                    {error}
+                  </div>
+                )}
+                {success && (
+                  <div className="text-success small">{success}</div>
+                )}
+                <Stack direction="horizontal" gap={2}>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="sm"
+                    disabled={disabled}
+                  >
+                    {saving ? (
+                      <>
+                        <Spinner animation="border" size="sm" className="me-2" />
+                        Salvando...
+                      </>
+                    ) : (
+                      "Aplicar"
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline-secondary"
+                    size="sm"
+                    onClick={() => {
+                      setEntry(null);
+                      setForm(defaultForm);
+                      setSuccess("");
+                      setError("");
+                    }}
+                    disabled={saving}
+                  >
+                    Limpar
+                  </Button>
+                  <Button
+                    variant="outline-danger"
+                    size="sm"
+                    onClick={requestDelete}
+                    disabled={saving || !(entry?.id || entry?._id)}
+                  >
+                    Remover
+                  </Button>
+                </Stack>
               </Stack>
-            </Stack>
-          </Form>
-        )}
-      </Dropdown.Menu>
-    </Dropdown>
+            </Form>
+          )}
+        </Dropdown.Menu>
+      </Dropdown>
+
+      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
+        <DialogTitle>Remover da Minha Lista</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Deseja remover{" "}
+            <strong>{title || entry?.imdbId || "este filme"}</strong> da sua
+            lista pessoal?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <MuiButton onClick={() => setConfirmOpen(false)} size="small">
+            Cancelar
+          </MuiButton>
+          <MuiButton
+            color="error"
+            variant="contained"
+            size="small"
+            disabled={saving}
+            onClick={handleConfirmDelete}
+          >
+            Remover
+          </MuiButton>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }
 

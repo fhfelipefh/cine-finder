@@ -18,6 +18,8 @@ import {
   Chip,
   CircularProgress,
   Divider,
+  Drawer,
+  Fab,
   FormControl,
   Grid,
   IconButton,
@@ -51,6 +53,7 @@ import LocalMoviesIcon from "@mui/icons-material/LocalMovies";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import FilterListIcon from "@mui/icons-material/FilterList";
 
 const statusOptions = [
   { value: "all", label: "Todos", icon: ListAltIcon },
@@ -177,6 +180,7 @@ export default function MyListDashboard({ onSelectMovie }) {
   });
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [detailsMap, setDetailsMap] = useState({});
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -506,6 +510,70 @@ export default function MyListDashboard({ onSelectMovie }) {
     };
   }, [stats, entries.length]);
 
+  const filtersView = (
+    <Box sx={{ width: { xs: 280, sm: 340 }, p: 3 }}>
+      <Typography variant="h6" gutterBottom>
+        Filtros
+      </Typography>
+      <Stack spacing={2}>
+        <ToggleStatusGroup
+          value={filters.status}
+          onChange={(status) => handleFilterChange({ status })}
+        />
+        <FormControl size="small" fullWidth>
+          <InputLabel>Prioridade</InputLabel>
+          <Select
+            label="Prioridade"
+            value={filters.priority}
+            onChange={(e) => handleFilterChange({ priority: e.target.value })}
+          >
+            {priorityOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <FormControl size="small" fullWidth>
+          <InputLabel>Ordenar por</InputLabel>
+          <Select
+            label="Ordenar por"
+            value={filters.sortBy}
+            onChange={(e) => handleFilterChange({ sortBy: e.target.value })}
+          >
+            {sortOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <TextField
+          size="small"
+          label="Buscar"
+          value={filters.search}
+          onChange={(e) => handleFilterChange({ search: e.target.value })}
+        />
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="text"
+            size="small"
+            onClick={() => setFilters(defaultFilters)}
+          >
+            Limpar
+          </Button>
+          <Button
+            variant="contained"
+            size="small"
+            onClick={() => setFiltersOpen(false)}
+          >
+            Aplicar
+          </Button>
+        </Stack>
+      </Stack>
+    </Box>
+  );
+
   if (!isAuthenticated) {
     return (
       <Box
@@ -577,7 +645,7 @@ export default function MyListDashboard({ onSelectMovie }) {
         </Stack>
       </Stack>
 
-      <Grid container spacing={1.5} sx={{ mb: 2 }}>
+      <Grid container spacing={1} sx={{ mb: 1.5 }}>
         <Grid item xs={12} md={3}>
           <StatCard
             title="Total de títulos"
@@ -615,82 +683,6 @@ export default function MyListDashboard({ onSelectMovie }) {
 
       <Card
         sx={{
-          mb: 2,
-          borderRadius: 2,
-          border: "1px solid",
-          borderColor: "divider",
-          boxShadow: "none",
-        }}
-      >
-        <CardContent sx={{ py: 2 }}>
-          <Stack
-            direction={{ xs: "column", lg: "row" }}
-            spacing={1.5}
-            justifyContent="space-between"
-          >
-            <Stack
-              direction={{ xs: "column", md: "row" }}
-              spacing={1.5}
-              flexWrap="wrap"
-            >
-              <ToggleStatusGroup
-                value={filters.status}
-                onChange={(status) => handleFilterChange({ status })}
-              />
-              <FormControl size="small" sx={{ minWidth: 160 }}>
-                <InputLabel>Prioridade</InputLabel>
-                <Select
-                  label="Prioridade"
-                  value={filters.priority}
-                  onChange={(e) =>
-                    handleFilterChange({ priority: e.target.value })
-                  }
-                >
-                  {priorityOptions.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl size="small" sx={{ minWidth: 220 }}>
-                <InputLabel>Ordenar por</InputLabel>
-                <Select
-                  label="Ordenar por"
-                  value={filters.sortBy}
-                  onChange={(e) =>
-                    handleFilterChange({ sortBy: e.target.value })
-                  }
-                >
-                  {sortOptions.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <TextField
-                size="small"
-                label="Buscar"
-                value={filters.search}
-                onChange={(e) => handleFilterChange({ search: e.target.value })}
-              />
-            </Stack>
-            <Stack direction="row" spacing={1}>
-              <Button
-                variant="text"
-                size="small"
-                onClick={() => setFilters(defaultFilters)}
-              >
-                Limpar
-              </Button>
-            </Stack>
-          </Stack>
-        </CardContent>
-      </Card>
-
-      <Card
-        sx={{
           mb: 3,
           borderRadius: 2,
           border: "1px solid",
@@ -698,11 +690,11 @@ export default function MyListDashboard({ onSelectMovie }) {
           boxShadow: "none",
         }}
       >
-        <CardContent component="form" onSubmit={handleCreateEntry} sx={{ py: 2 }}>
+        <CardContent component="form" onSubmit={handleCreateEntry} sx={{ py: 1.5 }}>
           <Stack
             direction={{ xs: "column", md: "row" }}
-            spacing={2}
-            alignItems={{ md: "flex-end" }}
+            spacing={1.5}
+            alignItems={{ xs: "stretch", md: "flex-end" }}
           >
             <TextField
               label="IMDb ID (ex: tt1234567)"
@@ -713,7 +705,7 @@ export default function MyListDashboard({ onSelectMovie }) {
               required
               InputProps={{ sx: { textTransform: "uppercase" } }}
             />
-            <FormControl sx={{ minWidth: 160 }} size="small">
+            <FormControl sx={{ minWidth: 150 }} size="small">
               <InputLabel>Status</InputLabel>
               <Select
                 label="Status"
@@ -731,7 +723,7 @@ export default function MyListDashboard({ onSelectMovie }) {
                   ))}
               </Select>
             </FormControl>
-            <FormControl sx={{ minWidth: 140 }} size="small">
+            <FormControl sx={{ minWidth: 130 }} size="small">
               <InputLabel>Prioridade</InputLabel>
               <Select
                 label="Prioridade"
@@ -861,6 +853,29 @@ export default function MyListDashboard({ onSelectMovie }) {
           />
         </Box>
       )}
+
+      <Fab
+        color="primary"
+        size="medium"
+        onClick={() => setFiltersOpen(true)}
+        sx={{
+          position: "fixed",
+          bottom: 28,
+          right: 28,
+          zIndex: 1300,
+        }}
+        aria-label="Abrir filtros"
+      >
+        <FilterListIcon />
+      </Fab>
+
+      <Drawer
+        anchor="right"
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+      >
+        {filtersView}
+      </Drawer>
 
       <Snackbar
         open={Boolean(error)}
@@ -1117,9 +1132,20 @@ function EntryCard({
         display: "flex",
         flexDirection: "column",
         position: "relative",
+        borderRadius: 2,
       }}
+      variant="outlined"
     >
-      <CardContent sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
+      <CardContent
+        sx={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          py: 1.5,
+          px: 1.5,
+          gap: 1,
+        }}
+      >
         <Checkbox
           size="small"
           checked={selected}
@@ -1127,11 +1153,11 @@ function EntryCard({
           disabled={!onToggleSelect}
           sx={{ position: "absolute", top: 8, right: 8 }}
         />
-        <Stack direction="row" spacing={2}>
+        <Stack direction="row" spacing={1.25}>
           <Box
             sx={{
-              width: 80,
-              height: 120,
+              width: 60,
+              height: 90,
               borderRadius: 2,
               overflow: "hidden",
               flexShrink: 0,
@@ -1160,7 +1186,7 @@ function EntryCard({
             )}
           </Box>
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography variant="h6" noWrap title={movieTitle}>
+            <Typography variant="subtitle1" noWrap title={movieTitle}>
               {movieTitle || "Título desconhecido"}
             </Typography>
             {imdbLabel && (
@@ -1168,7 +1194,7 @@ function EntryCard({
                 {imdbLabel}
               </Typography>
             )}
-            <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+            <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
               <Chip
                 size="small"
                 label={statusLabels[status] || "Status indefinido"}
@@ -1180,11 +1206,7 @@ function EntryCard({
                 color={priorityColors[priority] || "default"}
               />
             </Stack>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ mt: 1 }}
-            >
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
               Atualizado em{" "}
               {new Date(entry.updatedAt || entry.createdAt || Date.now()).toLocaleDateString(
                 undefined,
@@ -1194,8 +1216,8 @@ function EntryCard({
           </Box>
         </Stack>
 
-        <Divider sx={{ my: 2 }} />
-        <Stack spacing={1}>
+        <Divider sx={{ my: 1.5 }} />
+        <Stack spacing={0.75}>
           <FormControl size="small" fullWidth>
             <InputLabel>Status</InputLabel>
             <Select
@@ -1243,7 +1265,7 @@ function EntryCard({
             />
           </Stack>
         </Stack>
-        <Divider sx={{ my: 2 }} />
+        <Divider sx={{ my: 1.5 }} />
         <Stack direction="row" spacing={1} justifyContent="space-between">
           <Tooltip title="Ver detalhes do filme">
             <span>

@@ -46,6 +46,11 @@ function getEmbedMovieUrl(movieId) {
   return `https://myembed.biz/filme/${encodeURIComponent(movieId)}`;
 }
 
+function getSuperflixMovieUrl(movieId) {
+  if (!movieId) return "";
+  return `https://superflixapi.lifestyle/filme/${encodeURIComponent(movieId)}`;
+}
+
 export default function MovieDetailsModal({
   show,
   movieId,
@@ -96,7 +101,18 @@ export default function MovieDetailsModal({
     const brCert = getCertification(details.release_dates, "BR");
     const ytKey = getYoutubeKey(details.videos);
     const embedUrl = getEmbedMovieUrl(details.id);
-    return { title, year, poster, spoken, countries, brCert, ytKey, embedUrl };
+    const superflixUrl = getSuperflixMovieUrl(details.id);
+    return {
+      title,
+      year,
+      poster,
+      spoken,
+      countries,
+      brCert,
+      ytKey,
+      embedUrl,
+      superflixUrl,
+    };
   }, [details]);
 
   useEffect(() => {
@@ -268,6 +284,23 @@ export default function MovieDetailsModal({
                     src={meta.embedUrl}
                     title={`Player de ${meta.title}`}
                     allow="autoplay; encrypted-media; picture-in-picture"
+                    allowFullScreen
+                    loading="lazy"
+                    frameBorder="0"
+                    scrolling="no"
+                  />
+                </div>
+              </div>
+            )}
+
+            {meta.superflixUrl && (
+              <div className="mt-4">
+                <h6 className="mb-2">Assistir {meta.title} - Opção 2</h6>
+                <div className="ratio ratio-16x9 movie-player">
+                  <iframe
+                    src={meta.superflixUrl}
+                    title={`Player alternativo de ${meta.title}`}
+                    allow="autoplay *; encrypted-media *; picture-in-picture *; fullscreen *; clipboard-write *; accelerometer *; gyroscope *; web-share *"
                     allowFullScreen
                     loading="lazy"
                     frameBorder="0"

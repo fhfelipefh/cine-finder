@@ -41,6 +41,11 @@ function getYoutubeKey(videos) {
   );
 }
 
+function getEmbedMovieUrl(movieId) {
+  if (!movieId) return "";
+  return `https://myembed.biz/filme/${encodeURIComponent(movieId)}`;
+}
+
 export default function MovieDetailsModal({
   show,
   movieId,
@@ -90,7 +95,8 @@ export default function MovieDetailsModal({
       (details.production_countries || []).map((c) => c.name).join(", ") || "—";
     const brCert = getCertification(details.release_dates, "BR");
     const ytKey = getYoutubeKey(details.videos);
-    return { title, year, poster, spoken, countries, brCert, ytKey };
+    const embedUrl = getEmbedMovieUrl(details.id);
+    return { title, year, poster, spoken, countries, brCert, ytKey, embedUrl };
   }, [details]);
 
   useEffect(() => {
@@ -249,6 +255,23 @@ export default function MovieDetailsModal({
                     title="Trailer"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
+                  />
+                </div>
+              </div>
+            )}
+
+            {meta.embedUrl && (
+              <div className="mt-4">
+                <h6 className="mb-2">Assistir {meta.title}</h6>
+                <div className="ratio ratio-16x9 movie-player">
+                  <iframe
+                    src={meta.embedUrl}
+                    title={`Player de ${meta.title}`}
+                    allow="autoplay; encrypted-media; picture-in-picture"
+                    allowFullScreen
+                    loading="lazy"
+                    frameBorder="0"
+                    scrolling="no"
                   />
                 </div>
               </div>

@@ -35,10 +35,14 @@ export function getClientUUID() {
     if (existing && typeof existing === "string" && existing.length >= 8) {
       return existing;
     }
-  } catch {}
+  } catch {
+    /* ignore storage read failures */
+  }
   const id = generateUUID();
   try {
     localStorage.setItem(STORAGE_KEY, id);
-  } catch {}
+  } catch {
+    /* ignore storage write failures */
+  }
   return id;
 }

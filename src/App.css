@@ -78,3 +78,13 @@
 .movie-card {
   position: relative;
 }
+
+.movie-player {
+  overflow: hidden;
+  border-radius: 8px;
+  background: #000;
+}
+
+.movie-player iframe {
+  border: 0;
+}

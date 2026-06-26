@@ -9,7 +9,6 @@ import "./App.css";
 import {
   getPopularMovies,
   searchMovies,
-  getMovieDetails,
   getGenres,
   getMoviesByGenre,
 } from "./api/api.js";
